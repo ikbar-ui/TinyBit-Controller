@@ -1,1 +1,1463 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark" data-accent="cyan">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UCONNECT — Micro:bit & Tiny:bit Controller</title>
+<style>
+/* ===================== THEME TOKENS ===================== */
+:root{
+  --bg:#0b0f19; --surface:#131b2e; --card:rgba(23,32,54,.72); --card-solid:#172036;
+  --deep:#080c14; --border:rgba(255,255,255,.09); --border-strong:rgba(255,255,255,.18);
+  --text:#f8fafc; --muted:#94a3b8; --dim:#64748b; --soft:rgba(255,255,255,.04); --soft2:rgba(255,255,255,.08);
+  --shadow:0 10px 30px -10px rgba(0,0,0,.55);
+  --primary:#00f0ff; --primary2:#0099ff; --on-primary:#04101e; --primary-rgb:0,240,255;
+  --purple:#7928ca; --pink:#ff007a; --yellow:#ffb703; --green:#00f59b; --red:#ff3366;
+  --led-off:#202736; --led-on:#ff2a5f; --gold:#e5a93c; --board:#181e29;
+  --r-sm:8px; --r-md:14px; --r-lg:20px; --r-xl:28px;
+  --font:'Segoe UI',system-ui,-apple-system,Roboto,sans-serif;
+  --mono:'SFMono-Regular',Consolas,Menlo,monospace;
+}
+[data-theme="light"]{
+  --bg:#eef3fb; --surface:#ffffff; --card:rgba(255,255,255,.82); --card-solid:#ffffff;
+  --deep:#e7eef9; --border:rgba(15,23,42,.1); --border-strong:rgba(15,23,42,.22);
+  --text:#0f172a; --muted:#475569; --dim:#64748b; --soft:rgba(15,23,42,.04); --soft2:rgba(15,23,42,.08);
+  --shadow:0 10px 30px -12px rgba(30,64,120,.25);
+  --on-primary:#ffffff; --led-off:#cfd8e6; --board:#1b2333;
+}
+[data-accent="cyan"]{--primary:#00f0ff;--primary2:#0099ff;--primary-rgb:0,240,255}
+[data-accent="purple"]{--primary:#a78bfa;--primary2:#7c3aed;--primary-rgb:167,139,250}
+[data-accent="pink"]{--primary:#ff4d9d;--primary2:#e0126d;--primary-rgb:255,77,157}
+[data-accent="green"]{--primary:#00f59b;--primary2:#00b36f;--primary-rgb:0,245,155}
+[data-accent="amber"]{--primary:#ffb703;--primary2:#f08c00;--primary-rgb:255,183,3}
+[data-theme="light"][data-accent="cyan"]{--primary:#0891b2;--primary2:#0e5fd8;--primary-rgb:8,145,178}
+[data-theme="light"][data-accent="purple"]{--primary:#7c3aed;--primary2:#5b21b6;--primary-rgb:124,58,237}
+[data-theme="light"][data-accent="pink"]{--primary:#db2777;--primary2:#9d174d;--primary-rgb:219,39,119}
+[data-theme="light"][data-accent="green"]{--primary:#059669;--primary2:#047857;--primary-rgb:5,150,105}
+[data-theme="light"][data-accent="amber"]{--primary:#d97706;--primary2:#b45309;--primary-rgb:217,119,6}
 
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden;transition:background .4s,color .4s}
+body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(circle at 12% 12%,rgba(var(--primary-rgb),.10),transparent 42%),
+             radial-gradient(circle at 88% 88%,rgba(121,40,202,.10),transparent 42%),
+             radial-gradient(circle at 50% 50%,rgba(255,0,122,.04),transparent 60%)}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--soft2);border-radius:4px}::-webkit-scrollbar-thumb:hover{background:var(--primary)}
+code{font-family:var(--mono);background:var(--soft2);padding:1px 6px;border-radius:5px;font-size:.85em}
+svg{flex-shrink:0}
+.hidden{display:none!important}
+
+/* ===================== BACKGROUND LAYER ===================== */
+#bgCanvas{position:fixed;inset:0;z-index:0;pointer-events:none;width:100%;height:100%}
+.floaters{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.floater{position:absolute;opacity:.10;color:var(--primary);animation:drift 24s ease-in-out infinite}
+.floater svg{width:100%;height:100%}
+.floater.f1{left:5%;top:18%;width:84px;animation-duration:26s}
+.floater.f2{right:6%;top:30%;width:64px;animation-duration:20s;animation-delay:-6s}
+.floater.f3{left:12%;bottom:8%;width:56px;animation-duration:30s;animation-delay:-12s}
+.floater.f4{right:14%;bottom:12%;width:96px;animation-duration:34s;animation-delay:-3s}
+@keyframes drift{0%,100%{transform:translate(0,0) rotate(0)}25%{transform:translate(30px,-40px) rotate(8deg)}50%{transform:translate(-20px,-70px) rotate(-6deg)}75%{transform:translate(-40px,-20px) rotate(5deg)}}
+body.no-anim *,body.no-anim *::before,body.no-anim *::after{animation:none!important}
+body.no-anim .floaters{display:none}
+
+/* ===================== HEADER ===================== */
+header{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:10px 22px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:12px;cursor:pointer;background:none;border:none;color:inherit;font-family:inherit;text-align:left}
+.brand-icon{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--primary),var(--purple));display:flex;align-items:center;justify-content:center;box-shadow:0 0 18px rgba(var(--primary-rgb),.4);color:#fff}
+.brand-icon svg{width:26px;height:26px}
+.brand h1{font-size:1.15rem;font-weight:800;letter-spacing:-.3px;display:flex;align-items:center;gap:8px}
+.badge{font-size:.62rem;font-weight:800;text-transform:uppercase;padding:2px 7px;border-radius:20px;background:rgba(var(--primary-rgb),.15);color:var(--primary);border:1px solid rgba(var(--primary-rgb),.35);letter-spacing:.5px}
+.brand p{font-size:.72rem;color:var(--muted)}
+.header-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.status-pill{display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:20px;background:var(--soft);border:1px solid var(--border);font-size:.78rem;font-weight:600;max-width:240px}
+.status-pill span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--dim);flex-shrink:0}
+.dot.connected{background:var(--green);box-shadow:0 0 10px var(--green);animation:pulse 2s infinite}
+.dot.demo{background:#a855f7;box-shadow:0 0 10px #a855f7}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.85)}}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:9px 16px;border-radius:var(--r-md);border:1px solid transparent;font-size:.82rem;font-weight:700;font-family:inherit;cursor:pointer;transition:all .22s cubic-bezier(.16,1,.3,1);user-select:none;color:var(--text);background:transparent;white-space:nowrap}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary2));color:var(--on-primary);box-shadow:0 4px 16px rgba(var(--primary-rgb),.3)}
+.btn-primary:hover:not(:disabled){box-shadow:0 6px 24px rgba(var(--primary-rgb),.5);filter:brightness(1.08)}
+.btn-danger{background:linear-gradient(135deg,#ff3366,#e60049);color:#fff;box-shadow:0 4px 16px rgba(255,51,102,.3)}
+.btn-outline{background:var(--soft);border-color:var(--border)}
+.btn-outline:hover:not(:disabled){background:var(--soft2);border-color:var(--border-strong)}
+.btn-demo{background:rgba(168,85,247,.14);border-color:rgba(168,85,247,.4);color:#a855f7}
+.btn-demo:hover{background:rgba(168,85,247,.26)}
+[data-theme="dark"] .btn-demo{color:#d8b4fe}
+.btn-lg{padding:14px 26px;font-size:.95rem;border-radius:16px}
+.btn-sm{padding:6px 12px;font-size:.74rem;border-radius:10px}
+.btn-icon{padding:9px;border-radius:12px;background:var(--soft);border-color:var(--border)}
+.btn-icon:hover{background:var(--soft2)}
+
+/* ===================== SPLASH ===================== */
+#splash{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;transition:opacity .6s ease,visibility .6s,transform .6s;cursor:pointer;overflow:hidden}
+#splash::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 40%,rgba(var(--primary-rgb),.18),transparent 55%),radial-gradient(circle at 80% 90%,rgba(121,40,202,.18),transparent 45%)}
+#splash.out{opacity:0;visibility:hidden;transform:scale(1.06)}
+.splash-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(var(--primary-rgb),.07) 1px,transparent 1px),linear-gradient(90deg,rgba(var(--primary-rgb),.07) 1px,transparent 1px);background-size:40px 40px;mask-image:radial-gradient(circle at 50% 50%,#000 20%,transparent 70%);-webkit-mask-image:radial-gradient(circle at 50% 50%,#000 20%,transparent 70%);animation:gridmove 6s linear infinite}
+@keyframes gridmove{to{background-position:40px 40px}}
+.splash-robot{width:190px;position:relative;z-index:2;animation:bob 2.6s ease-in-out infinite}
+.splash-title{position:relative;z-index:2;font-size:2.1rem;font-weight:900;letter-spacing:6px;display:flex}
+.splash-title span{display:inline-block;background:linear-gradient(180deg,var(--text),var(--primary));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:letter 1.8s ease-in-out infinite}
+@keyframes letter{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.splash-bar{position:relative;z-index:2;width:min(300px,70vw);height:6px;background:var(--soft2);border-radius:4px;overflow:hidden}
+.splash-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--primary),var(--purple),var(--pink));border-radius:4px;box-shadow:0 0 12px rgba(var(--primary-rgb),.7);transition:width .2s linear}
+.splash-msg{position:relative;z-index:2;font-size:.82rem;color:var(--muted);min-height:1.2em;font-family:var(--mono)}
+.splash-skip{position:absolute;bottom:22px;font-size:.72rem;color:var(--dim);z-index:2}
+
+/* ===================== ROBOT SVG ANIMATIONS ===================== */
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+@keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.08)}}
+@keyframes wave{0%,100%{transform:rotate(0)}50%{transform:rotate(-38deg)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes glow{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes antenna{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
+.rb-eye{transform-box:fill-box;transform-origin:center;animation:blink 4s infinite}
+.rb-arm-r{transform-box:fill-box;transform-origin:50% 12%;animation:wave 2.2s ease-in-out infinite}
+.rb-wheel{transform-box:fill-box;transform-origin:center;animation:spin 2.4s linear infinite}
+.rb-tip{animation:glow 1.2s ease-in-out infinite}
+.rb-ant{transform-box:fill-box;transform-origin:50% 100%;animation:antenna 2s ease-in-out infinite}
+
+/* ===================== HOME ===================== */
+main{flex:1;position:relative;z-index:1;width:100%;max-width:1400px;margin:0 auto;padding:0 24px 40px}
+#homeView{padding-top:18px}
+.hero{display:grid;grid-template-columns:1.1fr .9fr;gap:30px;align-items:center;min-height:calc(100vh - 150px);padding:20px 0}
+.hero-tag{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:20px;background:rgba(var(--primary-rgb),.12);border:1px solid rgba(var(--primary-rgb),.3);color:var(--primary);font-size:.78rem;font-weight:700;margin-bottom:18px}
+.hero h2{font-size:clamp(2.1rem,4.6vw,3.6rem);line-height:1.08;font-weight:900;letter-spacing:-1.5px;margin-bottom:16px}
+.grad{background:linear-gradient(90deg,var(--primary),var(--purple),var(--pink));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;background-size:200% auto;animation:shine 6s linear infinite}
+@keyframes shine{to{background-position:200% center}}
+.hero p.lead{font-size:1.02rem;color:var(--muted);line-height:1.7;max-width:540px;margin-bottom:26px}
+.hero-cta{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:26px}
+.hero-stats{display:flex;gap:26px;flex-wrap:wrap}
+.hero-stats div b{display:block;font-size:1.4rem;font-weight:800;color:var(--primary)}
+.hero-stats div span{font-size:.74rem;color:var(--muted)}
+.hero-art{position:relative;display:flex;align-items:center;justify-content:center;min-height:380px}
+.hero-art .rbt{width:min(300px,62%);position:relative;z-index:3;animation:bob 3.2s ease-in-out infinite;filter:drop-shadow(0 25px 35px rgba(0,0,0,.4))}
+.ring{position:absolute;border-radius:50%;border:1.5px dashed rgba(var(--primary-rgb),.35);animation:spin 28s linear infinite}
+.ring.r1{width:360px;height:360px}.ring.r2{width:470px;height:470px;animation-direction:reverse;animation-duration:40s;border-color:rgba(121,40,202,.35)}
+.ring.r3{width:250px;height:250px;border-style:solid;border-color:rgba(var(--primary-rgb),.15);animation-duration:18s}
+.chip{position:absolute;z-index:4;padding:8px 14px;border-radius:14px;background:var(--card);border:1px solid var(--border);backdrop-filter:blur(10px);font-size:.76rem;font-weight:700;display:flex;align-items:center;gap:8px;box-shadow:var(--shadow);animation:bob 4s ease-in-out infinite}
+.chip.c1{top:12%;left:4%}.chip.c2{top:22%;right:0;animation-delay:-1.3s}.chip.c3{bottom:14%;left:0;animation-delay:-2.2s}.chip.c4{bottom:8%;right:6%;animation-delay:-.7s}
+.chip i{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
+
+.section-title{font-size:1.5rem;font-weight:800;margin:30px 0 4px;letter-spacing:-.5px}
+.section-sub{color:var(--muted);font-size:.88rem;margin-bottom:18px}
+.feat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.feat{padding:22px;border-radius:var(--r-lg);background:var(--card);border:1px solid var(--border);backdrop-filter:blur(12px);transition:all .3s;cursor:pointer;box-shadow:var(--shadow)}
+.feat:hover{transform:translateY(-6px);border-color:rgba(var(--primary-rgb),.5);box-shadow:0 18px 40px -14px rgba(var(--primary-rgb),.35)}
+.feat-ico{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;background:linear-gradient(135deg,rgba(var(--primary-rgb),.22),rgba(121,40,202,.22));font-size:1.4rem}
+.feat h3{font-size:1rem;margin-bottom:6px}.feat p{font-size:.82rem;color:var(--muted);line-height:1.55}
+.how-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.how{display:flex;gap:14px;padding:20px;border-radius:var(--r-lg);background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow)}
+.how .num{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,var(--primary),var(--primary2));color:var(--on-primary);font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.how h4{margin-bottom:4px;font-size:.95rem}.how p{font-size:.8rem;color:var(--muted);line-height:1.5}
+
+/* ===================== TABS ===================== */
+.tab-bar-wrap{padding:16px 0 0;display:flex;justify-content:center}
+.tab-bar{display:inline-flex;background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:5px;gap:4px;overflow-x:auto;max-width:100%;backdrop-filter:blur(12px)}
+.tab{display:flex;align-items:center;gap:8px;padding:9px 16px;border-radius:var(--r-md);font-size:.82rem;font-weight:600;color:var(--muted);cursor:pointer;border:none;background:transparent;transition:all .2s;white-space:nowrap;font-family:inherit}
+.tab:hover{color:var(--text);background:var(--soft)}
+.tab.active{color:var(--on-primary);background:linear-gradient(135deg,var(--primary),var(--primary2));font-weight:700;box-shadow:0 2px 12px rgba(var(--primary-rgb),.4)}
+.tab svg{width:16px;height:16px;fill:currentColor}
+.pane{display:none;padding-top:20px;animation:fadeIn .35s cubic-bezier(.16,1,.3,1)}
+.pane.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.grid-ctrl{display:grid;grid-template-columns:1.2fr .8fr;gap:22px}
+.stack{display:flex;flex-direction:column;gap:20px}
+@media(max-width:1024px){.grid-2,.grid-ctrl,.hero,.feat-grid,.how-grid{grid-template-columns:1fr}.feat-grid{grid-template-columns:1fr 1fr}.hero{min-height:auto;text-align:center}.hero p.lead{margin-inline:auto}.hero-cta,.hero-stats{justify-content:center}.hero-art{min-height:340px}}
+@media(max-width:640px){.feat-grid{grid-template-columns:1fr}.lbl{display:none}header{padding:10px 14px}main{padding:0 14px 30px}.brand p{display:none}.ring.r2{display:none}}
+
+/* ===================== CARDS ===================== */
+.card{background:var(--card);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:var(--r-lg);padding:22px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.card-title{font-size:1rem;font-weight:700;display:flex;align-items:center;gap:10px}
+.card-title svg{width:20px;height:20px;fill:var(--primary)}
+.tag{font-size:.68rem;padding:3px 9px;border-radius:7px;background:var(--soft2);color:var(--muted);font-family:var(--mono);white-space:nowrap}
+.tag.ok{background:rgba(0,245,155,.15);color:var(--green)}.tag.warn{background:rgba(255,183,3,.15);color:var(--yellow)}.tag.err{background:rgba(255,51,102,.15);color:var(--red)}
+
+.toggle-row{display:flex;align-items:center;justify-content:space-between;gap:14px;background:var(--soft);padding:12px 16px;border-radius:var(--r-md);border:1px solid var(--border);margin-bottom:10px}
+.toggle-row b{display:block;font-size:.86rem;font-weight:600}.toggle-row small{font-size:.72rem;color:var(--muted)}
+.switch{position:relative;display:inline-block;width:46px;height:26px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.sw{position:absolute;cursor:pointer;inset:0;background:var(--soft2);border:1px solid var(--border);transition:.3s;border-radius:26px}
+.sw::before{position:absolute;content:"";height:18px;width:18px;left:3px;bottom:3px;background:#fff;transition:.3s cubic-bezier(.16,1,.3,1);border-radius:50%;box-shadow:0 2px 5px rgba(0,0,0,.4)}
+input:checked+.sw{background:var(--primary);border-color:var(--primary)}
+input:checked+.sw::before{transform:translateX(20px)}
+.slider-ctl{display:flex;flex-direction:column;gap:8px;margin:12px 0}
+.slider-head{display:flex;justify-content:space-between;align-items:center;font-size:.84rem}
+.val{font-family:var(--mono);font-weight:700;color:var(--primary);background:rgba(var(--primary-rgb),.12);padding:2px 9px;border-radius:7px;border:1px solid rgba(var(--primary-rgb),.25)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:8px;background:var(--soft2);border-radius:4px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--primary);cursor:pointer;box-shadow:0 0 10px rgba(var(--primary-rgb),.8)}
+input[type=range]::-moz-range-thumb{width:20px;height:20px;border:none;border-radius:50%;background:var(--primary);cursor:pointer}
+.input{flex:1;background:var(--soft);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;color:var(--text);font-family:var(--mono);font-size:.82rem;outline:none;min-width:0;transition:border-color .2s}
+.input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(var(--primary-rgb),.15)}
+.input-row{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ===================== D-PAD ===================== */
+.ctrl-box{display:flex;flex-direction:column;align-items:center;gap:18px}
+.dpad-wrap{padding:16px;border-radius:50%;background:radial-gradient(circle,var(--surface) 0%,var(--deep) 75%);border:2px solid var(--border);box-shadow:inset 0 4px 16px rgba(0,0,0,.35),0 12px 35px rgba(0,0,0,.25),0 0 22px rgba(var(--primary-rgb),.1);margin:6px auto}
+.dpad{display:grid;grid-template-columns:repeat(3,84px);grid-template-rows:repeat(3,84px);gap:10px}
+.dbtn{border-radius:18px;background:linear-gradient(145deg,var(--surface),var(--card-solid));border:1px solid var(--border-strong);color:var(--text);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;user-select:none;touch-action:none;transition:all .12s cubic-bezier(.16,1,.3,1);box-shadow:0 6px 16px rgba(0,0,0,.25),inset 0 1px 1px rgba(255,255,255,.2)}
+.dbtn:hover{border-color:var(--primary);color:var(--primary);transform:translateY(-2px);box-shadow:0 6px 20px rgba(var(--primary-rgb),.3)}
+.dbtn:active,.dbtn.active{transform:scale(.92);background:linear-gradient(145deg,var(--primary),var(--primary2))!important;color:var(--on-primary)!important;border-color:#fff!important;box-shadow:0 0 25px rgba(var(--primary-rgb),.85)!important}
+.dbtn svg{width:28px;height:28px;fill:currentColor}
+.dbtn small{font-size:.62rem;font-family:var(--mono);opacity:.75;font-weight:700}
+.d-up{grid-column:2;grid-row:1;border-radius:20px 20px 10px 10px}.d-left{grid-column:1;grid-row:2;border-radius:20px 10px 10px 20px}
+.d-right{grid-column:3;grid-row:2;border-radius:10px 20px 20px 10px}.d-down{grid-column:2;grid-row:3;border-radius:10px 10px 20px 20px}
+.d-stop{grid-column:2;grid-row:2;border-radius:50%;background:linear-gradient(145deg,#ff2a5f,#c70039);border:2px solid rgba(255,255,255,.4);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:.72rem;font-weight:800;letter-spacing:.8px;cursor:pointer;box-shadow:0 6px 20px rgba(255,42,95,.5);transition:all .15s;user-select:none;touch-action:none}
+.d-stop svg{width:22px;height:22px;fill:#fff}
+.d-stop:hover{transform:scale(1.06);filter:brightness(1.12)}.d-stop:active,.d-stop.active{transform:scale(.9);box-shadow:0 0 35px rgba(255,42,95,1)}
+@media(max-width:480px){.dpad{grid-template-columns:repeat(3,70px);grid-template-rows:repeat(3,70px);gap:8px}}
+
+.arena{background:var(--deep);border:1px solid var(--border);border-radius:var(--r-md);position:relative;height:240px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.arena-bg{position:absolute;inset:0;background-image:linear-gradient(rgba(var(--primary-rgb),.07) 1px,transparent 1px),linear-gradient(90deg,rgba(var(--primary-rgb),.07) 1px,transparent 1px);background-size:24px 24px}
+.arena-robot{position:relative;width:90px;height:110px;transition:transform .25s cubic-bezier(.2,.8,.2,1);filter:drop-shadow(0 10px 15px rgba(0,0,0,.5))}
+.arena-hud{position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;font-size:.72rem;font-family:var(--mono);color:var(--muted);pointer-events:none}
+.hud{background:var(--card-solid);padding:4px 10px;border-radius:6px;border:1px solid var(--border)}
+.action-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.action-btn{background:var(--soft);border:1px solid var(--border);border-radius:var(--r-md);padding:12px;display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--text);cursor:pointer;transition:all .2s;font-family:inherit}
+.action-btn:hover{background:var(--soft2);border-color:var(--border-strong);transform:translateY(-2px)}
+.action-btn svg{width:22px;height:22px;fill:var(--primary)}.action-btn span{font-size:.78rem;font-weight:600}
+.palette{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.cdot{width:32px;height:32px;border-radius:9px;border:2px solid transparent;cursor:pointer;transition:all .2s}
+.cdot:hover{transform:scale(1.15)}.cdot.active{border-color:var(--text);box-shadow:0 0 12px currentColor}
+
+/* ===================== MICRO:BIT BOARD ===================== */
+.mb-board{width:290px;height:230px;background:var(--board);border-radius:28px;border:2px solid #2a3447;position:relative;margin:10px auto;box-shadow:0 15px 35px rgba(0,0,0,.4);padding:16px;display:flex;flex-direction:column;justify-content:space-between;color:#fff}
+.mb-top{display:flex;justify-content:space-between;align-items:center}
+.mb-logo{width:22px;height:22px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .2s}
+.mb-logo:hover{transform:scale(1.15)}
+.mb-label{font-size:.65rem;font-weight:800;letter-spacing:1.5px}
+.mb-mid{display:flex;align-items:center;justify-content:space-between;padding:0 6px}
+.hw-btn{width:32px;height:32px;border-radius:50%;background:#111;border:2px solid #3a475d;color:#fff;font-weight:800;font-size:.8rem;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 8px rgba(0,0,0,.5);user-select:none;font-family:inherit}
+.hw-btn:active,.hw-btn.pressed{transform:scale(.9);background:var(--pink);border-color:#fff;box-shadow:0 0 15px var(--pink)}
+.matrix{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;padding:10px;background:#0d121c;border-radius:12px;border:1px solid rgba(255,255,255,.06);box-shadow:inset 0 2px 8px rgba(0,0,0,.7)}
+.led{width:15px;height:15px;border-radius:3px;background:#202736;cursor:pointer;transition:all .15s}
+.led:hover{background:#471a27}.led.on{background:var(--led-on);box-shadow:0 0 12px rgba(255,42,95,.8),inset 0 1px 2px rgba(255,255,255,.6)}
+.edge{height:32px;background:#0d121c;border-radius:6px;display:flex;align-items:flex-end;justify-content:space-around;padding:2px 6px}
+.pin{background:var(--gold);border-radius:2px 2px 0 0;color:#111;font-size:.55rem;font-weight:800;display:flex;align-items:center;justify-content:center;width:34px;height:24px}
+.pin.s{width:6px;height:16px}
+.preset-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:10px}
+.preset{background:var(--soft);border:1px solid var(--border);border-radius:10px;padding:8px 2px;font-size:.7rem;color:var(--text);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .2s;font-family:inherit}
+.preset:hover{background:rgba(var(--primary-rgb),.12);border-color:var(--primary);color:var(--primary)}
+.preset span{font-size:1.1rem}
+@media(max-width:480px){.preset-grid{grid-template-columns:repeat(3,1fr)}}
+
+/* ===================== SENSORS ===================== */
+.sensor-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.sensor{background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:16px;display:flex;flex-direction:column;gap:10px;position:relative;overflow:hidden;box-shadow:var(--shadow)}
+.sensor::before{content:'';position:absolute;left:0;top:0;width:4px;height:100%;background:var(--ac,var(--primary))}
+.sensor-top{display:flex;justify-content:space-between;align-items:center;font-size:.82rem;color:var(--muted)}
+.sensor-top span:first-child{display:flex;align-items:center;gap:6px}
+.sensor-val{font-size:1.8rem;font-weight:800;font-family:var(--mono)}
+.sensor-unit{font-size:.85rem;color:var(--muted);margin-left:4px}
+.spark{width:100%;height:75px;display:block}
+.tilt-vp{perspective:800px;height:180px;display:flex;align-items:center;justify-content:center}
+.tilt-model{width:160px;height:125px;background:linear-gradient(135deg,#1b263b,#0d1b2a);border:2px solid var(--primary);border-radius:18px;box-shadow:0 15px 35px rgba(var(--primary-rgb),.25);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;transition:transform .1s ease-out;transform-style:preserve-3d;color:#fff}
+.mini-box{background:var(--soft);padding:8px;border-radius:10px;text-align:center}
+.mini-box small{display:block;font-size:.7rem;color:var(--muted)}.mini-box b{font-family:var(--mono)}
+
+/* ===================== AI CAMERA ===================== */
+.cam-stage{position:relative;aspect-ratio:1/1;width:100%;max-width:480px;margin:0 auto;border-radius:var(--r-lg);overflow:hidden;background:var(--deep);border:2px solid var(--border);display:flex;align-items:center;justify-content:center}
+.cam-stage.live{border-color:var(--primary);box-shadow:0 0 0 4px rgba(var(--primary-rgb),.15),0 0 30px rgba(var(--primary-rgb),.25)}
+.cam-stage canvas{width:100%;height:100%;object-fit:cover;display:block}
+.cam-ph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted);text-align:center;padding:20px;font-size:.84rem;background-image:linear-gradient(rgba(var(--primary-rgb),.06) 1px,transparent 1px),linear-gradient(90deg,rgba(var(--primary-rgb),.06) 1px,transparent 1px);background-size:26px 26px}
+.cam-ph svg{width:54px;height:54px;fill:var(--primary);opacity:.8;animation:bob 2.6s ease-in-out infinite}
+.cam-overlay{position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;pointer-events:none;z-index:2}
+.cam-pill{background:rgba(8,12,20,.7);backdrop-filter:blur(6px);color:#fff;padding:4px 10px;border-radius:20px;font-size:.7rem;font-weight:700;font-family:var(--mono);display:flex;align-items:center;gap:6px}
+.cam-pill i{width:7px;height:7px;border-radius:50%;background:#ff3366;animation:pulse 1s infinite}
+.cam-scan{position:absolute;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--primary),transparent);box-shadow:0 0 14px var(--primary);animation:scan 2.6s ease-in-out infinite;z-index:2;display:none}
+.cam-stage.live .cam-scan{display:block}
+@keyframes scan{0%,100%{top:4%}50%{top:94%}}
+.cam-actions{display:flex;gap:10px;margin-top:16px;justify-content:center;flex-wrap:wrap}
+.steps-mini{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.sm-step{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:20px;font-size:.74rem;font-weight:600;background:var(--soft);border:1px solid var(--border);color:var(--muted)}
+.sm-step b{width:18px;height:18px;border-radius:50%;background:var(--soft2);display:flex;align-items:center;justify-content:center;font-size:.65rem}
+.sm-step.done{color:var(--green);border-color:rgba(0,245,155,.4)}.sm-step.done b{background:var(--green);color:#04101e}
+.sm-step.now{color:var(--primary);border-color:rgba(var(--primary-rgb),.5)}.sm-step.now b{background:var(--primary);color:var(--on-primary)}
+.top-result{display:flex;align-items:center;gap:18px;padding:18px;border-radius:var(--r-md);background:linear-gradient(135deg,rgba(var(--primary-rgb),.14),rgba(121,40,202,.12));border:1px solid rgba(var(--primary-rgb),.3);margin-bottom:16px}
+.ring-pct{--p:0;width:86px;height:86px;border-radius:50%;background:conic-gradient(var(--primary) calc(var(--p)*1%),var(--soft2) 0);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:--p .2s}
+.ring-pct div{width:68px;height:68px;border-radius:50%;background:var(--surface);display:flex;align-items:center;justify-content:center;font-weight:800;font-family:var(--mono);font-size:1.05rem}
+.top-label small{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.top-label b{display:block;font-size:1.5rem;font-weight:800;word-break:break-word;line-height:1.15}
+.top-label span{font-size:.76rem;color:var(--muted)}
+.bars{display:flex;flex-direction:column;gap:10px}
+.bar-row{display:grid;grid-template-columns:110px 1fr 52px;gap:10px;align-items:center;font-size:.8rem;padding:6px 8px;border-radius:10px;border:1px solid transparent;transition:all .2s}
+.bar-row.top{background:rgba(var(--primary-rgb),.08);border-color:rgba(var(--primary-rgb),.35)}
+.bar-name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-track{height:10px;background:var(--soft2);border-radius:6px;overflow:hidden}
+.bar-fill{height:100%;width:0;border-radius:6px;background:linear-gradient(90deg,var(--primary2),var(--primary));transition:width .15s ease-out}
+.bar-row:not(.top) .bar-fill{background:var(--dim);opacity:.7}
+.bar-pct{font-family:var(--mono);text-align:right;font-weight:700}
+.empty{text-align:center;color:var(--muted);font-size:.84rem;padding:26px 10px;border:1px dashed var(--border-strong);border-radius:var(--r-md)}
+.map-list{display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto;padding-right:4px}
+.map-row{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;padding:8px 12px;border-radius:12px;background:var(--soft);border:1px solid var(--border);font-size:.82rem}
+.map-row b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.map-row .arrow{color:var(--primary);font-weight:800}
+.map-row .input{padding:6px 10px;font-size:.78rem}
+.last-sent{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-radius:12px;background:var(--soft);border:1px solid var(--border);font-size:.8rem;margin-top:10px}
+@media(max-width:480px){.bar-row{grid-template-columns:80px 1fr 46px}.top-result{flex-direction:column;text-align:center}}
+
+/* ===================== LOG ===================== */
+.terminal{background:var(--deep);border:1px solid var(--border);border-radius:var(--r-md);display:flex;flex-direction:column;height:440px;overflow:hidden;font-family:var(--mono)}
+.term-head{background:var(--soft);padding:10px 14px;display:flex;justify-content:space-between;border-bottom:1px solid var(--border);font-size:.72rem;gap:10px;flex-wrap:wrap}
+.term-body{flex:1;padding:12px;overflow-y:auto;font-size:.78rem;line-height:1.6;display:flex;flex-direction:column;gap:4px}
+.log-line{display:flex;gap:8px;word-break:break-all;align-items:flex-start}
+.log-time{color:var(--dim);font-size:.68rem;flex-shrink:0}
+.log-tag{padding:1px 5px;border-radius:4px;font-size:.62rem;font-weight:700;flex-shrink:0}
+.log-tag.rx{background:rgba(var(--primary-rgb),.15);color:var(--primary)}.log-tag.tx{background:rgba(255,183,3,.18);color:var(--yellow)}
+.log-tag.sys{background:rgba(121,40,202,.2);color:#a855f7}.log-tag.err{background:rgba(255,51,102,.2);color:var(--red)}.log-tag.ai{background:rgba(0,245,155,.18);color:var(--green)}
+.term-input{padding:8px 12px;background:var(--soft);border-top:1px solid var(--border);display:flex;gap:8px}
+
+/* ===================== GUIDE ===================== */
+.guide-nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.g-pill{padding:9px 16px;border-radius:30px;border:1px solid var(--border);background:var(--soft);color:var(--muted);font-weight:600;font-size:.82rem;cursor:pointer;transition:all .2s;font-family:inherit;display:flex;gap:6px;align-items:center}
+.g-pill:hover{color:var(--text);border-color:var(--border-strong)}
+.g-pill.active{background:linear-gradient(135deg,var(--primary),var(--primary2));color:var(--on-primary);border-color:transparent;box-shadow:0 4px 14px rgba(var(--primary-rgb),.35)}
+.g-panel{display:none}.g-panel.active{display:block;animation:fadeIn .3s}
+.g-intro{padding:16px 18px;border-radius:var(--r-md);background:rgba(var(--primary-rgb),.08);border:1px solid rgba(var(--primary-rgb),.25);margin-bottom:16px;font-size:.88rem;line-height:1.6}
+.g-steps{display:flex;flex-direction:column;gap:0;position:relative}
+.g-step{display:flex;gap:16px;padding-bottom:20px;position:relative}
+.g-step:not(:last-child)::before{content:"";position:absolute;left:19px;top:42px;bottom:2px;width:2px;background:linear-gradient(var(--primary),transparent);opacity:.35}
+.g-num{width:40px;height:40px;border-radius:13px;background:linear-gradient(135deg,var(--primary),var(--primary2));color:var(--on-primary);font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 12px rgba(var(--primary-rgb),.35)}
+.g-step h4{font-size:.95rem;margin:2px 0 4px}.g-step p{font-size:.84rem;color:var(--muted);line-height:1.6}
+.callout{display:flex;gap:12px;padding:12px 16px;border-radius:var(--r-md);font-size:.82rem;line-height:1.55;margin-top:10px;border:1px solid}
+.callout.tip{background:rgba(0,245,155,.08);border-color:rgba(0,245,155,.3)}.callout.warn{background:rgba(255,183,3,.09);border-color:rgba(255,183,3,.35)}
+.code{background:var(--deep);border:1px solid var(--border);border-radius:var(--r-md);padding:16px;font-family:var(--mono);font-size:.76rem;line-height:1.65;overflow:auto;max-height:420px;white-space:pre;color:var(--text);tab-size:2}
+.code-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:.78rem;color:var(--muted)}
+table.cmd{width:100%;border-collapse:collapse;font-size:.82rem}
+table.cmd th{text-align:left;padding:8px 6px;border-bottom:1px solid var(--border-strong)}
+table.cmd td{padding:8px 6px;border-bottom:1px solid var(--border);color:var(--muted)}
+table.cmd td:first-child{white-space:nowrap}
+.faq-item{padding:12px 16px;background:var(--soft);border:1px solid var(--border);border-radius:var(--r-md);margin-bottom:8px}
+.faq-item b{font-size:.86rem}.faq-item p{font-size:.8rem;color:var(--muted);margin-top:4px;line-height:1.55}
+
+/* ===================== MODAL & DRAWER ===================== */
+.overlay{position:fixed;inset:0;background:rgba(5,8,15,.7);backdrop-filter:blur(14px);z-index:150;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .3s}
+.overlay.active{opacity:1;pointer-events:auto}
+.modal{background:var(--surface);border:1px solid rgba(var(--primary-rgb),.3);border-radius:var(--r-xl);width:100%;max-width:470px;padding:30px 26px;box-shadow:0 25px 60px -15px rgba(0,0,0,.6),0 0 35px rgba(var(--primary-rgb),.15);text-align:center;transform:scale(.92);transition:transform .3s cubic-bezier(.16,1,.3,1)}
+.overlay.active .modal{transform:scale(1)}
+.radar{width:120px;height:120px;margin:0 auto 18px;position:relative;display:flex;align-items:center;justify-content:center}
+.wave{position:absolute;inset:0;border-radius:50%;border:2px solid var(--primary);opacity:0;animation:ping 2.2s cubic-bezier(0,.2,.8,1) infinite}
+.wave:nth-child(2){animation-delay:.7s}.wave:nth-child(3){animation-delay:1.4s}
+@keyframes ping{0%{transform:scale(.3);opacity:.9}80%{transform:scale(1.3);opacity:0}100%{opacity:0}}
+.radar-core{width:62px;height:62px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--purple));display:flex;align-items:center;justify-content:center;position:relative;z-index:2;box-shadow:0 0 25px rgba(var(--primary-rgb),.6);color:#fff}
+.radar-core svg{width:30px;height:30px;fill:#fff}
+.modal h3{font-size:1.3rem;font-weight:800;margin-bottom:6px}.modal>p{font-size:.84rem;color:var(--muted);margin-bottom:20px;line-height:1.5}
+.m-progress{height:6px;background:var(--soft2);border-radius:3px;overflow:hidden;margin-bottom:18px}
+.m-progress i{display:block;height:100%;width:25%;background:linear-gradient(90deg,var(--primary),var(--purple));border-radius:3px;transition:width .4s}
+.step-list{text-align:left;display:flex;flex-direction:column;gap:10px;margin-bottom:20px;background:var(--soft);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px}
+.step-item{display:flex;align-items:center;gap:12px;font-size:.8rem;color:var(--muted)}
+.step-ic{width:20px;height:20px;border-radius:50%;border:1px solid var(--dim);display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;flex-shrink:0}
+.step-item.active{color:var(--primary);font-weight:600}.step-item.active .step-ic{border-color:var(--primary);background:rgba(var(--primary-rgb),.2);animation:pulse 1s infinite}
+.step-item.done{color:var(--green)}.step-item.done .step-ic{border-color:var(--green);background:var(--green);color:#04101e;font-size:0}
+.step-item.done .step-ic::before{content:'✓';font-size:.65rem}
+.modal-actions{display:flex;gap:10px;justify-content:center}
+
+.drawer-bg{position:fixed;inset:0;background:rgba(5,8,15,.55);backdrop-filter:blur(6px);z-index:140;opacity:0;pointer-events:none;transition:opacity .3s}
+.drawer-bg.active{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;height:100%;width:min(400px,100vw);background:var(--surface);border-left:1px solid var(--border-strong);z-index:141;transform:translateX(105%);transition:transform .38s cubic-bezier(.16,1,.3,1);display:flex;flex-direction:column;box-shadow:-20px 0 50px rgba(0,0,0,.35)}
+.drawer.active{transform:none}
+.drawer-head{display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border-bottom:1px solid var(--border)}
+.drawer-head h3{font-size:1.1rem;display:flex;gap:10px;align-items:center}
+.drawer-body{flex:1;overflow-y:auto;padding:18px 20px 26px;display:flex;flex-direction:column;gap:20px}
+.set-group h5{font-size:.7rem;text-transform:uppercase;letter-spacing:1.2px;color:var(--primary);margin-bottom:10px}
+.set-label{font-size:.84rem;font-weight:600;margin-bottom:8px;display:block}
+.seg{display:flex;background:var(--soft);border:1px solid var(--border);border-radius:12px;padding:4px;gap:4px;margin-bottom:12px}
+.seg button{flex:1;padding:8px 6px;border-radius:9px;border:none;background:transparent;color:var(--muted);font-weight:600;font-size:.78rem;cursor:pointer;font-family:inherit;transition:all .2s}
+.seg button.active{background:var(--primary);color:var(--on-primary);box-shadow:0 2px 8px rgba(var(--primary-rgb),.4)}
+.swatches{display:flex;gap:10px;margin-bottom:12px}
+.swatch{width:34px;height:34px;border-radius:50%;border:3px solid transparent;cursor:pointer;transition:all .2s;outline:none}
+.swatch.active{border-color:var(--text);transform:scale(1.12)}
+
+.toasts{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:300;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.toast{background:var(--surface);color:var(--text);border:1px solid var(--border-strong);border-left:4px solid var(--primary);padding:10px 18px;border-radius:12px;font-size:.82rem;box-shadow:0 10px 30px rgba(0,0,0,.4);animation:fadeIn .3s;max-width:90vw}
+.toast.err{border-left-color:var(--red)}.toast.ok{border-left-color:var(--green)}
+footer{position:relative;z-index:1;padding:18px 24px;border-top:1px solid var(--border);text-align:center;font-size:.76rem;color:var(--dim)}
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+<div class="floaters" id="floaters"></div>
+
+<!-- ============ SPLASH / LOADING SCREEN ============ -->
+<div id="splash">
+  <div class="splash-grid"></div>
+  <div class="splash-robot" id="splashRobot"></div>
+  <div class="splash-title" id="splashTitle"></div>
+  <div class="splash-bar"><i id="splashBar"></i></div>
+  <div class="splash-msg" id="splashMsg">…</div>
+  <div class="splash-skip" data-i18n="splashSkip">Ketuk untuk melewati</div>
+</div>
+
+<!-- ============ HEADER ============ -->
+<header>
+  <button class="brand" id="brandBtn" title="Home">
+    <div class="brand-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="5"/><circle cx="9" cy="11" r="1.4" fill="currentColor"/><circle cx="15" cy="11" r="1.4" fill="currentColor"/><path d="M9 15h6M12 2v3"/></svg>
+    </div>
+    <div>
+      <h1>UCONNECT <span class="badge">PRO v3.0</span></h1>
+      <p data-i18n="brandSub">Web Controller Micro:bit &amp; Tiny:bit</p>
+    </div>
+  </button>
+  <div class="header-actions">
+    <div class="status-pill"><div id="statusDot" class="dot"></div><span id="statusText">Terputus</span></div>
+    <button class="btn btn-demo" id="demoBtn"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><span class="lbl" id="demoBtnText">Mode Demo</span></button>
+    <button class="btn btn-primary" id="connectBtn"><svg viewBox="0 0 24 24"><path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"/></svg><span class="lbl" id="connectBtnText">Hubungkan Bluetooth</span></button>
+    <button class="btn btn-icon" id="settingsBtn" data-i18n-title="settings" title="Pengaturan"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.59-.22l-2.39.96a7 7 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.48-.41h-3.84a.5.5 0 0 0-.48.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.59.22L2.74 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.26.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg></button>
+  </div>
+</header>
+
+<main>
+<!-- ============ HOME ============ -->
+<section id="homeView">
+  <div class="hero">
+    <div>
+      <div class="hero-tag">✨ <span data-i18n="heroTag"></span></div>
+      <h2><span data-i18n="heroT1"></span><br><span class="grad" data-i18n="heroT2"></span></h2>
+      <p class="lead" data-i18n="heroDesc"></p>
+      <div class="hero-cta">
+        <button class="btn btn-primary btn-lg" id="heroStart"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><span data-i18n="heroStart"></span></button>
+        <button class="btn btn-demo btn-lg" id="heroDemo"><span data-i18n="heroDemo"></span></button>
+        <button class="btn btn-outline btn-lg" id="heroGuide"><span data-i18n="heroGuide"></span></button>
+      </div>
+      <div class="hero-stats">
+        <div><b>BLE</b><span data-i18n="stat1"></span></div>
+        <div><b>AI</b><span data-i18n="stat2"></span></div>
+        <div><b>5×5</b><span data-i18n="stat3"></span></div>
+        <div><b>ID/EN</b><span data-i18n="stat4"></span></div>
+      </div>
+    </div>
+    <div class="hero-art">
+      <div class="ring r2"></div><div class="ring r1"></div><div class="ring r3"></div>
+      <div class="rbt" id="heroRobot"></div>
+      <div class="chip c1"><i></i>Bluetooth LE</div>
+      <div class="chip c2"><i></i>Teachable Machine</div>
+      <div class="chip c3"><i></i>Tiny:bit</div>
+      <div class="chip c4"><i></i>Realtime Sensor</div>
+    </div>
+  </div>
+
+  <h3 class="section-title" data-i18n="featTitle"></h3>
+  <p class="section-sub" data-i18n="featSub"></p>
+  <div class="feat-grid">
+    <div class="feat" data-go="controllerTab"><div class="feat-ico">🎮</div><h3 data-i18n="f1t"></h3><p data-i18n="f1d"></p></div>
+    <div class="feat" data-go="cameraTab"><div class="feat-ico">📷</div><h3 data-i18n="f2t"></h3><p data-i18n="f2d"></p></div>
+    <div class="feat" data-go="telemetryTab"><div class="feat-ico">📊</div><h3 data-i18n="f3t"></h3><p data-i18n="f3d"></p></div>
+    <div class="feat" data-go="actuatorTab"><div class="feat-ico">💡</div><h3 data-i18n="f4t"></h3><p data-i18n="f4d"></p></div>
+  </div>
+
+  <h3 class="section-title" data-i18n="howTitle"></h3>
+  <p class="section-sub" data-i18n="howSub"></p>
+  <div class="how-grid">
+    <div class="how"><div class="num">1</div><div><h4 data-i18n="h1t"></h4><p data-i18n="h1d"></p></div></div>
+    <div class="how"><div class="num">2</div><div><h4 data-i18n="h2t"></h4><p data-i18n="h2d"></p></div></div>
+    <div class="how"><div class="num">3</div><div><h4 data-i18n="h3t"></h4><p data-i18n="h3d"></p></div></div>
+  </div>
+</section>
+
+<!-- ============ APP ============ -->
+<section id="appView" class="hidden">
+  <div class="tab-bar-wrap"><div class="tab-bar" id="tabBar">
+    <button class="tab active" data-tab="controllerTab"><svg viewBox="0 0 24 24"><path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-10 7H8v3H6v-3H3v-2h3V8h2v3h3v2zm4.5 2c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm4-3c-.83 0-1.5-.67-1.5-1.5S18.67 9 19.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg><span data-i18n="tabCtrl"></span></button>
+    <button class="tab" data-tab="cameraTab"><svg viewBox="0 0 24 24"><path d="M12 15.2A3.2 3.2 0 1 0 12 8.8a3.2 3.2 0 0 0 0 6.4zM9 2 7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/></svg><span data-i18n="tabCam"></span></button>
+    <button class="tab" data-tab="telemetryTab"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg><span data-i18n="tabSensor"></span></button>
+    <button class="tab" data-tab="actuatorTab"><svg viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/></svg><span data-i18n="tabMatrix"></span></button>
+    <button class="tab" data-tab="terminalTab"><svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8h16v10zM6 10l4 3-4 3v-6zm5 5h6v1.5h-6V15z"/></svg><span data-i18n="tabLog"></span></button>
+    <button class="tab" data-tab="guideTab"><svg viewBox="0 0 24 24"><path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM9 4h2v5l-1-.75L9 9V4zm9 16H6V4h1v9l3-2.25L13 13V4h5v16z"/></svg><span data-i18n="tabGuide"></span></button>
+  </div></div>
+
+  <!-- TAB: CONTROLLER -->
+  <div id="controllerTab" class="pane active">
+    <div class="grid-ctrl">
+      <div class="card">
+        <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-10 7H8v3H6v-3H3v-2h3V8h2v3h3v2z"/></svg><span data-i18n="dpadTitle"></span></div><span class="tag">UART TX</span></div>
+        <div class="ctrl-box">
+          <div class="toggle-row" style="width:100%"><div><b data-i18n="holdT"></b><small data-i18n="holdD"></small></div><label class="switch"><input type="checkbox" id="holdMode" checked><span class="sw"></span></label></div>
+          <div class="dpad-wrap"><div class="dpad">
+            <button class="dbtn d-up" data-cmd="up"><svg viewBox="0 0 24 24"><path d="M12 4l-8 8h6v8h4v-8h6z"/></svg><small>W / ↑</small></button>
+            <button class="dbtn d-left" data-cmd="left"><svg viewBox="0 0 24 24"><path d="M4 12l8-8v6h8v4h-8v6z"/></svg><small>A / ←</small></button>
+            <button class="d-stop" data-cmd="stop"><svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg><span>STOP</span></button>
+            <button class="dbtn d-right" data-cmd="right"><svg viewBox="0 0 24 24"><path d="M20 12l-8 8v-6H4v-4h8V4z"/></svg><small>D / →</small></button>
+            <button class="dbtn d-down" data-cmd="down"><small>S / ↓</small><svg viewBox="0 0 24 24"><path d="M12 20l8-8h-6V4h-4v8H4z"/></svg></button>
+          </div></div>
+          <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;width:100%;font-size:.78rem;color:var(--muted)">
+            <span>⌨️ <span data-i18n="kbHint"></span></span>
+            <span><span data-i18n="lastCmd"></span>: <b id="hudLastCmd" style="color:var(--primary)">NONE</b></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="card">
+          <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/></svg><span data-i18n="arenaTitle"></span></div><span class="tag" id="arenaStatus">Idle</span></div>
+          <div class="arena"><div class="arena-bg"></div>
+            <div class="arena-hud"><div class="hud">MODE: <span id="hudMode">MANUAL</span></div><div class="hud" id="hudSpeed">SPD: 180</div></div>
+            <div class="arena-robot" id="arenaRobot">
+              <svg viewBox="0 0 100 120" width="100%" height="100%">
+                <rect x="4" y="25" width="12" height="55" rx="4" fill="#0f172a" stroke="#334155" stroke-width="2"/><rect x="84" y="25" width="12" height="55" rx="4" fill="#0f172a" stroke="#334155" stroke-width="2"/>
+                <rect x="18" y="15" width="64" height="85" rx="12" fill="#1e293b" stroke="var(--primary)" stroke-width="2"/>
+                <circle cx="36" cy="24" r="9" fill="#38bdf8" stroke="#0284c7" stroke-width="2"/><circle cx="64" cy="24" r="9" fill="#38bdf8" stroke="#0284c7" stroke-width="2"/>
+                <circle cx="36" cy="24" r="4" fill="#0369a1"/><circle cx="64" cy="24" r="4" fill="#0369a1"/>
+                <circle id="rgbL" cx="28" cy="42" r="5" fill="#ff0055"/><circle id="rgbR" cx="72" cy="42" r="5" fill="#ff0055"/>
+                <rect x="28" y="52" width="44" height="38" rx="6" fill="#0b0f19" stroke="#e5a93c" stroke-width="1.5"/>
+                <g fill="#ff2a5f"><circle cx="42" cy="64" r="1.5"/><circle cx="50" cy="64" r="1.5"/><circle cx="58" cy="64" r="1.5"/><circle cx="42" cy="72" r="1.5"/><circle cx="50" cy="72" r="1.5"/><circle cx="58" cy="72" r="1.5"/></g>
+              </svg>
+            </div>
+          </div>
+          <div class="slider-ctl"><div class="slider-head"><span>⚡ <span data-i18n="speedLbl"></span></span><span class="val" id="speedVal">180</span></div><input type="range" id="speedSlider" min="50" max="255" value="180"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zM2 13h2v-2H2v2zm18 0h2v-2h-2v2zM11 2v2h2V2h-2zm0 18v2h2v-2h-2z"/></svg><span data-i18n="extraTitle"></span></div></div>
+          <span style="font-size:.8rem;color:var(--muted)" data-i18n="rgbLbl"></span>
+          <div class="palette" id="palette"></div>
+          <div class="action-grid" style="margin-top:14px">
+            <button class="action-btn" data-cmd="beep"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg><span data-i18n="beep"></span></button>
+            <button class="action-btn" data-cmd="spin_l"><svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.77 20 14.44 20 13c0-4.42-3.58-8-8-8zm-6 8c0-1.01.25-1.97.7-2.8L5.24 8.74C4.46 10.23 4 11.56 4 13c0 4.42 3.58 8 8 8v4l5-5-5-5v4c-3.31 0-6-2.69-6-6z"/></svg><span data-i18n="spinL"></span></button>
+            <button class="action-btn" data-cmd="spin_r"><svg viewBox="0 0 24 24"><path d="M19 8l-4 4h3c0 3.31-2.69 6-6 6-1.01 0-1.97-.25-2.8-.7l-1.46 1.46C9.23 19.54 10.56 20 12 20c4.42 0 8-3.58 8-8h3l-4-4zM6 12c0-3.31 2.69-6 6-6 1.01 0 1.97.25 2.8.7l1.46-1.46C14.77 4.46 13.44 4 12 4c-4.42 0-8 3.58-8 8H1l4 4 4-4H6z"/></svg><span data-i18n="spinR"></span></button>
+            <button class="action-btn" data-cmd="avoid:1"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg><span data-i18n="avoid"></span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: AI CAMERA -->
+  <div id="cameraTab" class="pane">
+    <div class="grid-2">
+      <div class="stack">
+        <div class="card">
+          <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm4 11H8v-1.5c0-1.7 2.7-2.5 4-2.5s4 .8 4 2.5V17z"/></svg><span data-i18n="camModelTitle"></span></div><span class="tag" id="camModelTag">—</span></div>
+          <div class="steps-mini">
+            <div class="sm-step now" id="cs1"><b>1</b><span data-i18n="cs1"></span></div>
+            <div class="sm-step" id="cs2"><b>2</b><span data-i18n="cs2"></span></div>
+            <div class="sm-step" id="cs3"><b>3</b><span data-i18n="cs3"></span></div>
+          </div>
+          <label class="set-label" data-i18n="camUrlLbl"></label>
+          <div class="input-row">
+            <input class="input" id="tmUrl" type="url" placeholder="https://teachablemachine.withgoogle.com/models/xxxxxxx/" autocomplete="off" spellcheck="false">
+            <button class="btn btn-primary" id="loadModelBtn"><span data-i18n="camLoad"></span></button>
+          </div>
+          <small style="display:block;margin-top:8px;color:var(--muted);font-size:.74rem" data-i18n="camUrlHint"></small>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 15.2A3.2 3.2 0 1 0 12 8.8a3.2 3.2 0 0 0 0 6.4zM9 2 7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9z"/></svg><span data-i18n="camViewTitle"></span></div><span class="tag" id="camStateTag">OFF</span></div>
+          <div class="cam-stage" id="camStage">
+            <div class="cam-ph" id="camPh"><svg viewBox="0 0 24 24"><path d="M12 15.2A3.2 3.2 0 1 0 12 8.8a3.2 3.2 0 0 0 0 6.4zM9 2 7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9z"/></svg><span data-i18n="camPh"></span></div>
+            <div class="cam-overlay hidden" id="camOverlay"><div class="cam-pill"><i></i>LIVE</div><div class="cam-pill" id="camFps">0 FPS</div></div>
+            <div class="cam-scan"></div>
+          </div>
+          <div class="cam-actions">
+            <button class="btn btn-primary" id="camStartBtn"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><span data-i18n="camStart"></span></button>
+            <button class="btn btn-danger hidden" id="camStopBtn"><svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg><span data-i18n="camStop"></span></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="card">
+          <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z"/></svg><span data-i18n="camResultTitle"></span></div></div>
+          <div class="top-result">
+            <div class="ring-pct" id="ringPct"><div id="ringTxt">0%</div></div>
+            <div class="top-label"><small data-i18n="camDetected"></small><b id="topName">—</b><span id="topHint"></span></div>
+          </div>
+          <div class="bars" id="bars"><div class="empty" data-i18n="camEmpty"></div></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z"/></svg><span data-i18n="camSendTitle"></span></div><span class="tag" id="camLinkTag">—</span></div>
+          <div class="toggle-row"><div><b data-i18n="autoT"></b><small data-i18n="autoD"></small></div><label class="switch"><input type="checkbox" id="autoSend" checked><span class="sw"></span></label></div>
+          <div class="toggle-row"><div><b data-i18n="unsureT"></b><small data-i18n="unsureD"></small></div><label class="switch"><input type="checkbox" id="stopUnsure"><span class="sw"></span></label></div>
+          <div class="slider-ctl"><div class="slider-head"><span>🎯 <span data-i18n="thrLbl"></span></span><span class="val" id="thrVal">80%</span></div><input type="range" id="thrSlider" min="30" max="99" value="80"></div>
+          <span class="set-label" style="margin-top:6px" data-i18n="mapTitle"></span>
+          <div class="map-list" id="mapList"><div class="empty" data-i18n="mapEmpty"></div></div>
+          <datalist id="cmdList"><option value="up"><option value="down"><option value="left"><option value="right"><option value="stop"><option value="beep"><option value="spin_l"><option value="spin_r"><option value="avoid:1"><option value="lampu:1"><option value="lampu:0"></datalist>
+          <div class="last-sent"><span data-i18n="lastSent"></span><b id="camLastSent" style="color:var(--primary)">—</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: TELEMETRY -->
+  <div id="telemetryTab" class="pane">
+    <div class="sensor-grid">
+      <div class="sensor" style="--ac:#ff3366"><div class="sensor-top"><span>🌡️ <span data-i18n="sTemp"></span></span><span class="tag">suhu</span></div><div><span class="sensor-val" id="suhuVal">27.5</span><span class="sensor-unit">°C</span></div><canvas class="spark" id="chartSuhu"></canvas></div>
+      <div class="sensor" style="--ac:#00c8ff"><div class="sensor-top"><span>💧 <span data-i18n="sHum"></span></span><span class="tag">kelembaban</span></div><div><span class="sensor-val" id="kelembabanVal">65</span><span class="sensor-unit">%</span></div><canvas class="spark" id="chartKelembaban"></canvas></div>
+      <div class="sensor" style="--ac:#ffb703"><div class="sensor-top"><span>☀️ <span data-i18n="sLight"></span></span><span class="tag">cahaya</span></div><div><span class="sensor-val" id="cahayaVal">142</span><span class="sensor-unit">/ 255</span></div><canvas class="spark" id="chartCahaya"></canvas></div>
+      <div class="sensor" style="--ac:#7928ca"><div class="sensor-top"><span>🎤 <span data-i18n="sSound"></span></span><span class="tag">suara</span></div><div><span class="sensor-val" id="suaraVal">48</span><span class="sensor-unit">dB</span></div><canvas class="spark" id="chartSuara"></canvas></div>
+    </div>
+    <div class="grid-2" style="margin-top:20px">
+      <div class="card">
+        <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 2 4 6v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V6l-8-4z"/></svg><span data-i18n="tiltTitle"></span></div></div>
+        <div class="tilt-vp"><div class="tilt-model" id="tiltModel"><div style="font-size:.75rem;font-weight:800;letter-spacing:1px">BBC micro:bit</div><div class="matrix" id="tiltMatrix" style="transform:scale(.62);margin:-10px 0"></div><div style="font-size:.65rem;color:var(--primary)">Real-Time Tilt</div></div></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px">
+          <div class="mini-box"><small>Pitch (X)</small><b id="valX" style="color:var(--primary)">0°</b></div>
+          <div class="mini-box"><small>Roll (Y)</small><b id="valY" style="color:var(--pink)">0°</b></div>
+          <div class="mini-box"><small>Z</small><b id="valZ" style="color:var(--yellow)">1024</b></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg><span data-i18n="pinTitle"></span></div></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+          <div class="mini-box" style="padding:14px"><small data-i18n="btnA"></small><b id="stBtnA" style="font-size:1.1rem;color:var(--muted)">RELEASED</b></div>
+          <div class="mini-box" style="padding:14px"><small data-i18n="btnB"></small><b id="stBtnB" style="font-size:1.1rem;color:var(--muted)">RELEASED</b></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+          <div class="mini-box"><small>Pin P0</small><b id="pinP0" style="color:var(--primary)">0</b></div>
+          <div class="mini-box"><small>Pin P1</small><b id="pinP1" style="color:var(--primary)">0</b></div>
+          <div class="mini-box"><small>Pin P2</small><b id="pinP2" style="color:var(--primary)">0</b></div>
+          <div class="mini-box"><small>Logo</small><b id="logoTouch" style="color:var(--yellow)">OFF</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: MATRIX / OUTPUT -->
+  <div id="actuatorTab" class="pane">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/></svg><span data-i18n="matTitle"></span></div><button class="btn btn-outline btn-sm" id="clearMatrixBtn" data-i18n="matReset"></button></div>
+        <div class="mb-board">
+          <div class="mb-top"><div class="mb-logo" id="boardLogo"><svg width="12" height="12" viewBox="0 0 24 24" fill="#111"><circle cx="12" cy="12" r="8"/></svg></div><div class="mb-label">micro:bit</div><div style="width:14px;height:14px;border-radius:50%;background:#222;border:1px solid #444"></div></div>
+          <div class="mb-mid"><button class="hw-btn" id="boardA">A</button><div class="matrix" id="matrix"></div><button class="hw-btn" id="boardB">B</button></div>
+          <div class="edge"><div class="pin">0</div><div class="pin s"></div><div class="pin">1</div><div class="pin s"></div><div class="pin">2</div><div class="pin s"></div><div class="pin" style="background:#e63946;color:#fff">3V</div><div class="pin s"></div><div class="pin" style="background:#334155;color:#fff">GND</div></div>
+        </div>
+        <span style="font-size:.78rem;color:var(--muted)" data-i18n="presetLbl"></span>
+        <div class="preset-grid" id="presetGrid"></div>
+        <div class="term-input" style="margin-top:14px;border:1px solid var(--border);border-radius:12px">
+          <input class="input" id="matrixText" data-i18n-ph="textPh" value="UCONNECT"><button class="btn btn-primary btn-sm" id="sendTextBtn" data-i18n="sendText"></button>
+        </div>
+      </div>
+      <div class="stack">
+        <div class="card">
+          <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19a7 7 0 0 0-4 12.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26A7 7 0 0 0 12 2z"/></svg><span data-i18n="outTitle"></span></div></div>
+          <div class="toggle-row"><div><b data-i18n="lampT"></b><small>lampu:1 / lampu:0</small></div><label class="switch"><input type="checkbox" id="lampuSw"><span class="sw"></span></label></div>
+          <div class="toggle-row"><div><b data-i18n="modeT"></b><small>mode:1 / mode:0</small></div><label class="switch"><input type="checkbox" id="modeSw"><span class="sw"></span></label></div>
+          <div class="slider-ctl"><div class="slider-head"><span>💨 <span data-i18n="fanLbl"></span></span><span class="val" id="kipasVal">0</span></div><input type="range" id="kipasSlider" min="0" max="1023" value="0"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg><span data-i18n="buzzTitle"></span></div></div>
+          <div class="action-grid" id="noteGrid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: LOG -->
+  <div id="terminalTab" class="pane">
+    <div class="card">
+      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8h16v10z"/></svg><span data-i18n="logTitle"></span></div>
+        <div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm" id="clearLogBtn" data-i18n="logClear"></button><button class="btn btn-outline btn-sm" id="exportLogBtn" data-i18n="logExport"></button></div></div>
+      <div class="terminal">
+        <div class="term-head"><span>Nordic UART · 6e400001-b5a3-f393-e0a9-e50e24dcca9e</span><span id="termStats">TX: 0 | RX: 0</span></div>
+        <div class="term-body" id="log"></div>
+        <div class="term-input"><input class="input" id="cmdInput" data-i18n-ph="cmdPh"><button class="btn btn-primary btn-sm" id="sendCmdBtn" data-i18n="logSend"></button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: GUIDE -->
+  <div id="guideTab" class="pane">
+    <div class="card">
+      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg><span data-i18n="guideTitle"></span></div></div>
+      <div class="guide-nav" id="guideNav"></div>
+      <div id="guideBody"></div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>UCONNECT Pro v3 © 2026 — BBC micro:bit &amp; Yahboom Tiny:bit · Teachable Machine</footer>
+
+<!-- ============ BLUETOOTH MODAL ============ -->
+<div class="overlay" id="loadingModal">
+  <div class="modal">
+    <div class="radar"><div class="wave"></div><div class="wave"></div><div class="wave"></div>
+      <div class="radar-core"><svg viewBox="0 0 24 24"><path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"/></svg></div></div>
+    <h3 id="mTitle">…</h3><p id="mDesc">…</p>
+    <div class="m-progress"><i id="mBar"></i></div>
+    <div class="step-list">
+      <div class="step-item" id="ms1"><div class="step-ic">1</div><span data-i18n="ms1"></span></div>
+      <div class="step-item" id="ms2"><div class="step-ic">2</div><span data-i18n="ms2"></span></div>
+      <div class="step-item" id="ms3"><div class="step-ic">3</div><span data-i18n="ms3"></span></div>
+      <div class="step-item" id="ms4"><div class="step-ic">4</div><span data-i18n="ms4"></span></div>
+    </div>
+    <div class="modal-actions"><button class="btn btn-outline" id="cancelBtn" data-i18n="cancel"></button><button class="btn btn-demo" id="modalDemoBtn" data-i18n="tryDemo"></button></div>
+  </div>
+</div>
+
+<!-- ============ SETTINGS DRAWER ============ -->
+<div class="drawer-bg" id="drawerBg"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-head"><h3>⚙️ <span data-i18n="settings"></span></h3><button class="btn btn-icon" id="closeSettings">✕</button></div>
+  <div class="drawer-body">
+    <div class="set-group"><h5 data-i18n="setAppear"></h5>
+      <span class="set-label" data-i18n="setTheme"></span>
+      <div class="seg" id="segTheme"><button data-val="dark" data-i18n="thDark"></button><button data-val="light" data-i18n="thLight"></button><button data-val="auto" data-i18n="thAuto"></button></div>
+      <span class="set-label" data-i18n="setAccent"></span>
+      <div class="swatches" id="swatches"></div>
+      <span class="set-label" data-i18n="setLang"></span>
+      <div class="seg" id="segLang"><button data-val="id">🇮🇩 Indonesia</button><button data-val="en">🇬🇧 English</button></div>
+    </div>
+    <div class="set-group"><h5 data-i18n="setEffects"></h5>
+      <div class="toggle-row"><div><b data-i18n="setAnim"></b><small data-i18n="setAnimD"></small></div><label class="switch"><input type="checkbox" id="setAnim"><span class="sw"></span></label></div>
+      <div class="toggle-row"><div><b data-i18n="setSound"></b><small data-i18n="setSoundD"></small></div><label class="switch"><input type="checkbox" id="setSound"><span class="sw"></span></label></div>
+      <div class="toggle-row"><div><b data-i18n="setSplash"></b><small data-i18n="setSplashD"></small></div><label class="switch"><input type="checkbox" id="setSplash"><span class="sw"></span></label></div>
+    </div>
+    <div class="set-group"><h5 data-i18n="setRobot"></h5>
+      <div class="slider-ctl"><div class="slider-head"><span data-i18n="setSpeed"></span><span class="val" id="setSpeedVal">180</span></div><input type="range" id="setSpeed" min="50" max="255"></div>
+    </div>
+    <div class="set-group"><h5 data-i18n="setCam"></h5>
+      <div class="toggle-row"><div><b data-i18n="setMirror"></b><small data-i18n="setMirrorD"></small></div><label class="switch"><input type="checkbox" id="setMirror"><span class="sw"></span></label></div>
+      <div class="slider-ctl"><div class="slider-head"><span data-i18n="setStable"></span><span class="val" id="setStableVal">3</span></div><input type="range" id="setStable" min="1" max="10"><small style="color:var(--muted);font-size:.72rem" data-i18n="setStableD"></small></div>
+    </div>
+    <div class="set-group"><h5 data-i18n="setOther"></h5>
+      <button class="btn btn-outline" style="width:100%" id="resetSettings" data-i18n="setReset"></button>
+      <p style="font-size:.72rem;color:var(--dim);margin-top:10px;text-align:center">UCONNECT Pro v3.0</p>
+    </div>
+  </div>
+</aside>
+
+<div class="toasts" id="toasts"></div>
+
+<!-- TensorFlow.js + Teachable Machine -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+<script>
+/* =====================================================================
+   I18N
+   ===================================================================== */
+const I18N = {
+id:{
+ splashSkip:"Ketuk untuk melewati", sp1:"Menyalakan mesin robot…", sp2:"Menyiapkan Bluetooth LE…", sp3:"Memuat modul AI Kamera…", sp4:"Hampir siap!",
+ brandSub:"Web Controller Micro:bit & Tiny:bit", settings:"Pengaturan",
+ stDisc:"Terputus", stConn:"Terhubung", stDemo:"Mode Demo", btnDemo:"Mode Demo", btnStopDemo:"Hentikan Demo", btnConnect:"Hubungkan Bluetooth", btnDisconnect:"Putuskan",
+ heroTag:"Kontrol robot lewat Bluetooth + AI Kamera", heroT1:"Kendalikan Robot Tiny:bit", heroT2:"Cukup dari Satu Web",
+ heroDesc:"Hubungkan micro:bit lewat Bluetooth, gerakkan robot dengan D-Pad, pantau sensor secara realtime, dan latih AI di Teachable Machine untuk mengendalikan robot dengan kamera.",
+ heroStart:"Mulai Kontrol", heroDemo:"Coba Mode Demo", heroGuide:"Baca Panduan",
+ stat1:"Tanpa kabel", stat2:"Deteksi kamera", stat3:"Matrix LED", stat4:"Dwibahasa",
+ featTitle:"Semua yang Kamu Butuhkan", featSub:"Klik salah satu fitur untuk langsung mencobanya.",
+ f1t:"Kontrol Robot", f1d:"D-Pad, keyboard WASD, kecepatan motor, lampu RGB, dan klakson.",
+ f2t:"AI Kamera", f2d:"Muat model Teachable Machine lewat link dan kirim hasil deteksi ke robot.",
+ f3t:"Sensor & Telemetri", f3d:"Grafik suhu, cahaya, suara, dan kemiringan micro:bit realtime.",
+ f4t:"Matrix & Output", f4d:"Gambar di LED 5×5, kirim teks, nyalakan lampu, kipas, dan nada.",
+ howTitle:"Mulai dalam 3 Langkah", howSub:"Tidak perlu instalasi apa pun, cukup browser Chrome atau Edge.",
+ h1t:"Siapkan micro:bit", h1d:"Upload kode penerima dari tab Panduan ke micro:bit lewat MakeCode.",
+ h2t:"Hubungkan Bluetooth", h2d:"Klik tombol Hubungkan Bluetooth lalu pilih BBC micro:bit.",
+ h3t:"Kendalikan!", h3d:"Gunakan D-Pad, atau muat model AI dan gerakkan robot dengan kamera.",
+ tabCtrl:"Kontrol Robot", tabCam:"AI Kamera", tabSensor:"Sensor", tabMatrix:"Matrix & Output", tabLog:"Log", tabGuide:"Panduan",
+ dpadTitle:"D-Pad Robot Tiny:bit", holdT:"Mode Tahan untuk Jalan", holdD:"Robot jalan saat ditekan dan otomatis berhenti saat dilepas",
+ kbHint:"WASD / panah, Spasi = stop", lastCmd:"Perintah terakhir", arenaTitle:"Arena Virtual", speedLbl:"Kecepatan motor (PWM)",
+ extraTitle:"Fitur Tambahan", rgbLbl:"Lampu RGB depan Tiny:bit", beep:"Klakson", spinL:"Putar Kiri", spinR:"Putar Kanan", avoid:"Hindari Rintangan",
+ camModelTitle:"Model Teachable Machine", cs1:"Muat model", cs2:"Nyalakan kamera", cs3:"Kirim ke robot",
+ camUrlLbl:"Link model (hasil Export → Tensorflow.js)", camLoad:"Muat Model", camUrlHint:"Tempel link seperti https://teachablemachine.withgoogle.com/models/xxxx/ (boleh yang berakhiran model.json).",
+ camViewTitle:"Kamera Langsung", camPh:"Muat model lalu tekan Mulai Kamera", camStart:"Mulai Kamera", camStop:"Matikan Kamera",
+ camResultTitle:"Hasil Deteksi", camDetected:"Terdeteksi", camEmpty:"Belum ada hasil. Muat model dan nyalakan kamera.",
+ camSendTitle:"Kirim ke Micro:bit", autoT:"Kirim otomatis", autoD:"Kirim perintah saat hasil deteksi berubah",
+ unsureT:"Stop jika tidak yakin", unsureD:"Kirim stop bila keyakinan di bawah batas", thrLbl:"Batas keyakinan",
+ mapTitle:"Petakan kelas ke perintah", mapEmpty:"Daftar kelas muncul setelah model dimuat.", lastSent:"Terakhir dikirim",
+ camNoModel:"Masukkan link model terlebih dahulu", camLoading:"Memuat…", camLoaded:"Model siap", camLoadErr:"Gagal memuat model. Pastikan link benar dan model sudah di-upload (publik).",
+ camErrLib:"Library Teachable Machine belum termuat. Periksa koneksi internet.", camErrCam:"Kamera tidak bisa diakses. Izinkan akses kamera dan gunakan HTTPS atau localhost.",
+ camOn:"Kamera menyala", camOff:"Kamera dimatikan", camNotLinked:"Belum terhubung", camLinkedDemo:"Demo", camLinked:"Terhubung",
+ sTemp:"Suhu Lingkungan", sHum:"Kelembaban Udara", sLight:"Intensitas Cahaya", sSound:"Tingkat Kebisingan",
+ tiltTitle:"Orientasi Accelerometer", pinTitle:"Status Tombol & Pin", btnA:"Tombol A", btnB:"Tombol B",
+ matTitle:"Pelukis Matrix LED 5×5", matReset:"Reset", presetLbl:"Ikon preset:", textPh:"Teks untuk di-scroll di micro:bit…", sendText:"Kirim Teks",
+ pHeart:"Hati", pHappy:"Senyum", pSad:"Sedih", pCheck:"Cek", pCross:"Silang", pArrow:"Maju",
+ outTitle:"Saklar & Kipas", lampT:"Lampu Utama", modeT:"Mode Otomatis / Manual", fanLbl:"Kecepatan kipas / motor DC", buzzTitle:"Buzzer Nada",
+ logTitle:"Log Aktivitas & Konsol UART", logClear:"Bersihkan", logExport:"Ekspor TXT", logSend:"Kirim", cmdPh:"Ketik perintah (cth: up, lampu:1, kipas:500)…",
+ ms1:"Inisialisasi Web Bluetooth", ms2:"Memindai micro:bit", ms3:"Menghubungkan GATT UART", ms4:"Mengaktifkan notifikasi data",
+ cancel:"Batal", tryDemo:"Coba Mode Demo",
+ mInit:"Inisialisasi Bluetooth…", mInitD:"Memeriksa adapter Web Bluetooth…", mScan:"Memindai micro:bit…", mScanD:"Pilih perangkat BBC micro:bit di jendela browser.",
+ mGatt:"Menghubungkan GATT…", mCfg:"Konfigurasi UART…", mCfgD:"Membuka kanal kirim/terima data…", mOk:"Berhasil terhubung!",
+ noBle:"Browser belum mendukung Web Bluetooth. Gunakan Chrome atau Edge di Desktop/Android.", notConn:"Belum terhubung ke micro:bit. Hubungkan Bluetooth atau coba Mode Demo.",
+ setAppear:"Tampilan", setTheme:"Tema", thDark:"🌙 Gelap", thLight:"☀️ Terang", thAuto:"💻 Otomatis", setAccent:"Warna aksen", setLang:"Bahasa",
+ setEffects:"Efek & Suara", setAnim:"Animasi", setAnimD:"Latar bergerak dan animasi robot", setSound:"Suara efek", setSoundD:"Bunyi bip saat menekan tombol",
+ setSplash:"Layar loading", setSplashD:"Tampilkan animasi saat web dibuka", setRobot:"Robot", setSpeed:"Kecepatan awal motor",
+ setCam:"AI Kamera", setMirror:"Cerminkan kamera", setMirrorD:"Berlaku saat kamera dinyalakan ulang", setStable:"Stabilitas deteksi", setStableD:"Jumlah frame berurutan sebelum perintah dikirim",
+ setOther:"Lainnya", setReset:"Reset ke Pengaturan Awal", resetDone:"Pengaturan direset",
+ guideTitle:"Panduan Lengkap", gUse:"Cara Pakai Web", gConn:"Hubungkan Micro:bit", gTM:"Teachable Machine", gCode:"Kode MakeCode", gCmd:"Daftar Perintah", gFaq:"Masalah Umum",
+ copy:"Salin", copied:"Kode disalin", cmdCol:"Perintah", cmdFn:"Fungsi"
+},
+en:{
+ splashSkip:"Tap to skip", sp1:"Powering up robot engine…", sp2:"Preparing Bluetooth LE…", sp3:"Loading AI Camera module…", sp4:"Almost ready!",
+ brandSub:"Micro:bit & Tiny:bit Web Controller", settings:"Settings",
+ stDisc:"Disconnected", stConn:"Connected", stDemo:"Demo Mode", btnDemo:"Demo Mode", btnStopDemo:"Stop Demo", btnConnect:"Connect Bluetooth", btnDisconnect:"Disconnect",
+ heroTag:"Robot control via Bluetooth + AI Camera", heroT1:"Control Your Tiny:bit Robot", heroT2:"From a Single Website",
+ heroDesc:"Connect your micro:bit over Bluetooth, drive the robot with the D-Pad, watch sensors in realtime, and train AI in Teachable Machine to steer the robot with your camera.",
+ heroStart:"Start Controlling", heroDemo:"Try Demo Mode", heroGuide:"Read the Guide",
+ stat1:"Wireless", stat2:"Camera detection", stat3:"LED Matrix", stat4:"Bilingual",
+ featTitle:"Everything You Need", featSub:"Click a feature to try it right away.",
+ f1t:"Robot Control", f1d:"D-Pad, WASD keyboard, motor speed, RGB lights and horn.",
+ f2t:"AI Camera", f2d:"Load a Teachable Machine model by link and send detections to the robot.",
+ f3t:"Sensors & Telemetry", f3d:"Live charts for temperature, light, sound and micro:bit tilt.",
+ f4t:"Matrix & Output", f4d:"Draw on the 5×5 LEDs, send text, switch lights, fan and tones.",
+ howTitle:"Get Started in 3 Steps", howSub:"No installation needed, just Chrome or Edge.",
+ h1t:"Prepare the micro:bit", h1d:"Upload the receiver code from the Guide tab to your micro:bit via MakeCode.",
+ h2t:"Connect Bluetooth", h2d:"Click Connect Bluetooth and pick your BBC micro:bit.",
+ h3t:"Take control!", h3d:"Use the D-Pad, or load an AI model and drive the robot with your camera.",
+ tabCtrl:"Robot Control", tabCam:"AI Camera", tabSensor:"Sensors", tabMatrix:"Matrix & Output", tabLog:"Log", tabGuide:"Guide",
+ dpadTitle:"Tiny:bit Robot D-Pad", holdT:"Hold-to-Move Mode", holdD:"Robot moves while pressed and stops automatically on release",
+ kbHint:"WASD / arrows, Space = stop", lastCmd:"Last command", arenaTitle:"Virtual Arena", speedLbl:"Motor speed (PWM)",
+ extraTitle:"Extra Features", rgbLbl:"Tiny:bit front RGB lights", beep:"Horn", spinL:"Spin Left", spinR:"Spin Right", avoid:"Avoid Obstacles",
+ camModelTitle:"Teachable Machine Model", cs1:"Load model", cs2:"Start camera", cs3:"Send to robot",
+ camUrlLbl:"Model link (Export → Tensorflow.js)", camLoad:"Load Model", camUrlHint:"Paste a link like https://teachablemachine.withgoogle.com/models/xxxx/ (a model.json link also works).",
+ camViewTitle:"Live Camera", camPh:"Load a model, then press Start Camera", camStart:"Start Camera", camStop:"Stop Camera",
+ camResultTitle:"Detection Result", camDetected:"Detected", camEmpty:"No results yet. Load a model and start the camera.",
+ camSendTitle:"Send to Micro:bit", autoT:"Auto-send", autoD:"Send a command whenever the detection changes",
+ unsureT:"Stop when unsure", unsureD:"Send stop if confidence is below the threshold", thrLbl:"Confidence threshold",
+ mapTitle:"Map classes to commands", mapEmpty:"Classes appear after the model is loaded.", lastSent:"Last sent",
+ camNoModel:"Enter a model link first", camLoading:"Loading…", camLoaded:"Model ready", camLoadErr:"Failed to load the model. Check the link and make sure the model is uploaded (public).",
+ camErrLib:"Teachable Machine library not loaded. Check your internet connection.", camErrCam:"Cannot access the camera. Allow camera permission and use HTTPS or localhost.",
+ camOn:"Camera on", camOff:"Camera stopped", camNotLinked:"Not connected", camLinkedDemo:"Demo", camLinked:"Connected",
+ sTemp:"Ambient Temperature", sHum:"Air Humidity", sLight:"Light Intensity", sSound:"Noise Level",
+ tiltTitle:"Accelerometer Orientation", pinTitle:"Buttons & Pin Status", btnA:"Button A", btnB:"Button B",
+ matTitle:"5×5 LED Matrix Painter", matReset:"Reset", presetLbl:"Preset icons:", textPh:"Text to scroll on micro:bit…", sendText:"Send Text",
+ pHeart:"Heart", pHappy:"Happy", pSad:"Sad", pCheck:"Check", pCross:"Cross", pArrow:"Forward",
+ outTitle:"Switches & Fan", lampT:"Main Light", modeT:"Auto / Manual Mode", fanLbl:"Fan / DC motor speed", buzzTitle:"Tone Buzzer",
+ logTitle:"Activity Log & UART Console", logClear:"Clear", logExport:"Export TXT", logSend:"Send", cmdPh:"Type a command (e.g. up, lampu:1, kipas:500)…",
+ ms1:"Initialize Web Bluetooth", ms2:"Scan for micro:bit", ms3:"Connect GATT UART", ms4:"Enable data notifications",
+ cancel:"Cancel", tryDemo:"Try Demo Mode",
+ mInit:"Initializing Bluetooth…", mInitD:"Checking Web Bluetooth adapter…", mScan:"Scanning for micro:bit…", mScanD:"Pick your BBC micro:bit in the browser window.",
+ mGatt:"Connecting GATT…", mCfg:"Configuring UART…", mCfgD:"Opening send/receive channels…", mOk:"Connected successfully!",
+ noBle:"This browser does not support Web Bluetooth. Use Chrome or Edge on Desktop/Android.", notConn:"Not connected to a micro:bit. Connect Bluetooth or try Demo Mode.",
+ setAppear:"Appearance", setTheme:"Theme", thDark:"🌙 Dark", thLight:"☀️ Light", thAuto:"💻 Auto", setAccent:"Accent color", setLang:"Language",
+ setEffects:"Effects & Sound", setAnim:"Animations", setAnimD:"Moving background and robot animations", setSound:"Sound effects", setSoundD:"Beeps when pressing buttons",
+ setSplash:"Loading screen", setSplashD:"Show the intro animation on open", setRobot:"Robot", setSpeed:"Default motor speed",
+ setCam:"AI Camera", setMirror:"Mirror camera", setMirrorD:"Applies the next time the camera starts", setStable:"Detection stability", setStableD:"Consecutive frames required before a command is sent",
+ setOther:"Other", setReset:"Reset to Defaults", resetDone:"Settings reset",
+ guideTitle:"Complete Guide", gUse:"How to Use", gConn:"Connect Micro:bit", gTM:"Teachable Machine", gCode:"MakeCode Program", gCmd:"Command List", gFaq:"Troubleshooting",
+ copy:"Copy", copied:"Code copied", cmdCol:"Command", cmdFn:"Function"
+}};
+
+const MAKECODE = `// UCONNECT receiver — paste in MakeCode (JavaScript view)
+// Extensions needed: "bluetooth" and "tinybit" (Yahboom)
+let speed = 180
+
+bluetooth.onBluetoothConnected(function () {
+    basic.showIcon(IconNames.Yes)
+})
+bluetooth.onBluetoothDisconnected(function () {
+    basic.showIcon(IconNames.No)
+})
+
+bluetooth.onUartDataReceived(serial.delimiters(Delimiters.NewLine), function () {
+    let cmd = bluetooth.uartReadUntil(serial.delimiters(Delimiters.NewLine))
+    if (cmd == "up") {
+        tinybit.CarCtrlSpeed(tinybit.CarState.Car_Run, speed)
+        basic.showArrow(ArrowNames.North)
+    } else if (cmd == "down") {
+        tinybit.CarCtrlSpeed(tinybit.CarState.Car_Back, speed)
+        basic.showArrow(ArrowNames.South)
+    } else if (cmd == "left") {
+        tinybit.CarCtrlSpeed(tinybit.CarState.Car_Left, speed)
+        basic.showArrow(ArrowNames.West)
+    } else if (cmd == "right") {
+        tinybit.CarCtrlSpeed(tinybit.CarState.Car_Right, speed)
+        basic.showArrow(ArrowNames.East)
+    } else if (cmd == "stop") {
+        tinybit.CarCtrlSpeed(tinybit.CarState.Car_Stop, 0)
+        basic.clearScreen()
+    } else if (cmd == "spin_l") {
+        tinybit.CarCtrlSpeed(tinybit.CarState.Car_SpinLeft, speed)
+    } else if (cmd == "spin_r") {
+        tinybit.CarCtrlSpeed(tinybit.CarState.Car_SpinRight, speed)
+    } else if (cmd.substr(0, 6) == "speed:") {
+        speed = parseInt(cmd.substr(6))
+    }
+})
+
+bluetooth.startUartService()
+
+// Send sensor data to the website every second
+basic.forever(function () {
+    bluetooth.uartWriteLine("suhu:" + input.temperature())
+    bluetooth.uartWriteLine("cahaya:" + input.lightLevel())
+    bluetooth.uartWriteLine("x:" + input.rotation(Rotation.Pitch))
+    bluetooth.uartWriteLine("y:" + input.rotation(Rotation.Roll))
+    basic.pause(1000)
+})`;
+
+const GUIDE = {
+id:{
+ use:{intro:"UCONNECT adalah website untuk mengendalikan robot Tiny:bit dan micro:bit lewat Bluetooth, tanpa instal aplikasi.",
+  steps:[
+   ["Buka di browser yang tepat","Gunakan <b>Google Chrome</b> atau <b>Microsoft Edge</b> di Windows, macOS, Linux, atau Android. Safari, Firefox, dan iPhone/iPad belum mendukung Web Bluetooth."],
+   ["Coba dulu dengan Mode Demo","Belum punya alat? Klik <b>Mode Demo</b> di bagian atas. Sensor akan disimulasikan sehingga kamu bisa mengenal semua fitur."],
+   ["Hubungkan micro:bit","Klik <b>Hubungkan Bluetooth</b>. Cara lengkapnya ada di tab <b>Hubungkan Micro:bit</b>. Status berubah hijau saat berhasil."],
+   ["Kendalikan robot","Buka tab <b>Kontrol Robot</b>. Tekan D-Pad, atau pakai keyboard W A S D / tombol panah. Tombol tengah merah adalah <b>STOP</b>. Atur kecepatan dengan slider."],
+   ["Pantau sensor dan atur output","Tab <b>Sensor</b> menampilkan grafik realtime. Tab <b>Matrix &amp; Output</b> untuk menggambar di LED 5×5, mengirim teks, lampu, kipas, dan nada."],
+   ["Gunakan AI Kamera","Tab <b>AI Kamera</b> mendeteksi gambar dari webcam memakai model Teachable Machine lalu mengirim perintah ke robot. Lihat tab Teachable Machine."],
+   ["Sesuaikan lewat Pengaturan","Ikon ⚙️ di kanan atas untuk mengganti tema terang/gelap, bahasa, warna aksen, animasi, dan suara."]],
+  tip:"Semua perintah yang dikirim dan data yang diterima tercatat di tab <b>Log</b>. Kamu juga bisa mengetik perintah sendiri di sana."},
+ conn:{intro:"Agar website bisa mengendalikan robot, micro:bit harus menjalankan program penerima Bluetooth UART.",
+  steps:[
+   ["Siapkan perangkat","Pasang micro:bit ke Tiny:bit, lalu nyalakan baterai Tiny:bit. Pastikan Bluetooth laptop atau HP aktif."],
+   ["Buat project di MakeCode","Buka <b>makecode.microbit.org</b> → New Project. Tambahkan extension <b>bluetooth</b> dan <b>tinybit</b> lewat Extensions (cari “tinybit”)."],
+   ["Matikan pairing","Klik ⚙️ → <b>Project Settings</b> → pilih <b>No Pairing Required: Anyone can connect via Bluetooth</b>."],
+   ["Tempel kode penerima","Buka mode <b>JavaScript</b>, hapus isinya, lalu tempel kode dari tab <b>Kode MakeCode</b>. Pastikan tidak ada error."],
+   ["Upload ke micro:bit","Klik <b>Download</b>, sambungkan micro:bit lewat USB, lalu salin file .hex ke drive MICROBIT (atau gunakan WebUSB → Connect device)."],
+   ["Hubungkan dari website","Klik <b>Hubungkan Bluetooth</b>, pilih perangkat bernama <b>BBC micro:bit [xxxxx]</b>, lalu tekan Pair/Connect. Jika berhasil, status menjadi hijau dan micro:bit menampilkan ✔."]],
+  tip:"Nama micro:bit mengikuti pola 5 huruf yang tampil di layar saat pairing. Dekatkan perangkat (kurang dari 5 meter) agar sinyal stabil.",
+  warn:"Satu micro:bit hanya bisa terhubung ke satu perangkat. Tutup aplikasi lain (MakeCode Bluetooth, app micro:bit) sebelum menghubungkan."},
+ tm:{intro:"Teachable Machine (Google) melatih model pengenal gambar langsung dari webcam. UCONNECT memuat model itu lewat link.",
+  steps:[
+   ["Buka Teachable Machine","Kunjungi <b>teachablemachine.withgoogle.com</b> → Get Started → <b>Image Project</b> → <b>Standard image model</b>."],
+   ["Buat kelas dan rekam sampel","Buat kelas, misalnya <b>up</b>, <b>down</b>, <b>left</b>, <b>right</b>, <b>stop</b>. Rekam 50–100 gambar per kelas (misalnya gerakan tangan). Tambahkan satu kelas “stop” atau “kosong” untuk latar kosong."],
+   ["Latih model","Klik <b>Train Model</b> dan biarkan tab tetap terbuka sampai selesai. Cek hasilnya di panel Preview."],
+   ["Export dan ambil link","Klik <b>Export Model</b> → tab <b>Tensorflow.js</b> → <b>Upload (shareable link)</b> → <b>Update my cloud model</b>. Salin link yang muncul."],
+   ["Tempel di UCONNECT","Buka tab <b>AI Kamera</b>, tempel link di kolom model, klik <b>Muat Model</b>. Langkah 1 akan berubah hijau."],
+   ["Nyalakan kamera","Klik <b>Mulai Kamera</b> dan izinkan akses kamera. Hasil deteksi tampil sebagai persentase tiap kelas."],
+   ["Petakan ke perintah","Di kartu <b>Kirim ke Micro:bit</b>, isi perintah untuk tiap kelas (up, down, left, right, stop, dan lainnya). Jika nama kelas sama dengan perintah, pemetaan terisi otomatis. Aktifkan <b>Kirim otomatis</b>."]],
+  tip:"Beri nama kelas dengan perintah (up, down, left, right, stop) agar pemetaan otomatis. Latih dengan pencahayaan dan jarak yang sama seperti saat dipakai.",
+  warn:"Kamera hanya bisa dipakai di <b>HTTPS</b> atau <b>localhost</b>. Jika web dibuka dari file biasa, sebagian browser menolak akses kamera."},
+ code:{intro:"Kode penerima ini berjalan di micro:bit. Ia menerima perintah dari website dan mengirim data sensor kembali.",
+  note:"Nama blok extension tinybit bisa sedikit berbeda antar versi. Jika ada error, ganti blok gerak dengan blok dari extension yang kamu pasang. Kode Python lama diganti dengan MakeCode karena Bluetooth UART lebih mudah di MakeCode."},
+ cmds:[["up","Robot maju"],["down","Robot mundur"],["left","Belok kiri"],["right","Belok kanan"],["stop","Berhenti"],["speed:0-255","Atur kecepatan motor"],["rgb:red|green|blue|…","Warna lampu RGB"],["beep","Klakson"],["spin_l / spin_r","Putar 360° kiri / kanan"],["lampu:1 / lampu:0","Lampu hidup / mati"],["kipas:0-1023","Kecepatan kipas"],["mode:1 / mode:0","Otomatis / manual"],["matrix:25 bit","Gambar LED 5×5"],["text:abc","Teks berjalan"],["tone:Hz","Bunyikan nada"]],
+ faq:[["Micro:bit tidak muncul di daftar","Pastikan kode sudah di-upload, Bluetooth aktif, dan micro:bit tidak sedang terhubung ke perangkat lain. Tekan tombol reset lalu coba lagi."],["Terhubung tapi robot diam","Cek apakah baterai Tiny:bit menyala dan blok perintah di MakeCode cocok. Lihat tab Log untuk memastikan perintah terkirim (TX)."],["Kamera tidak mau menyala","Izinkan akses kamera di browser. Buka web lewat HTTPS atau localhost, dan tutup aplikasi lain yang memakai kamera."],["Model gagal dimuat","Pastikan sudah memilih Upload di Export Model dan link bisa dibuka tanpa login."],["Perintah tidak terkirim dari AI","Pastikan Kirim otomatis aktif, micro:bit terhubung (atau Mode Demo), dan keyakinan lebih tinggi dari batas."]]
+},
+en:{
+ use:{intro:"UCONNECT is a website to control Tiny:bit robots and micro:bit boards over Bluetooth, with no app to install.",
+  steps:[
+   ["Open it in the right browser","Use <b>Google Chrome</b> or <b>Microsoft Edge</b> on Windows, macOS, Linux or Android. Safari, Firefox and iPhone/iPad do not support Web Bluetooth."],
+   ["Try Demo Mode first","No hardware yet? Click <b>Demo Mode</b> at the top. Sensors are simulated so you can explore every feature."],
+   ["Connect your micro:bit","Click <b>Connect Bluetooth</b>. Full steps are in the <b>Connect Micro:bit</b> tab. The status turns green when connected."],
+   ["Drive the robot","Open <b>Robot Control</b>. Press the D-Pad, or use W A S D / arrow keys. The red center button is <b>STOP</b>. Adjust speed with the slider."],
+   ["Watch sensors and set outputs","The <b>Sensors</b> tab shows realtime charts. <b>Matrix &amp; Output</b> lets you draw on the 5×5 LEDs, send text, lights, fan and tones."],
+   ["Use the AI Camera","The <b>AI Camera</b> tab detects images from your webcam with a Teachable Machine model and sends commands to the robot. See the Teachable Machine tab."],
+   ["Customize in Settings","The ⚙️ icon at the top right switches light/dark theme, language, accent color, animations and sound."]],
+  tip:"Every command sent and every message received is recorded in the <b>Log</b> tab. You can also type your own commands there."},
+ conn:{intro:"For the website to control the robot, the micro:bit must run a Bluetooth UART receiver program.",
+  steps:[
+   ["Prepare the hardware","Mount the micro:bit on the Tiny:bit and switch on the Tiny:bit battery. Make sure Bluetooth is on on your laptop or phone."],
+   ["Create a MakeCode project","Open <b>makecode.microbit.org</b> → New Project. Add the <b>bluetooth</b> and <b>tinybit</b> extensions via Extensions (search “tinybit”)."],
+   ["Disable pairing","Click ⚙️ → <b>Project Settings</b> → choose <b>No Pairing Required: Anyone can connect via Bluetooth</b>."],
+   ["Paste the receiver code","Switch to <b>JavaScript</b> view, clear it, then paste the code from the <b>MakeCode Program</b> tab. Make sure there are no errors."],
+   ["Upload to the micro:bit","Click <b>Download</b>, plug the micro:bit in over USB and copy the .hex file to the MICROBIT drive (or use WebUSB → Connect device)."],
+   ["Connect from the website","Click <b>Connect Bluetooth</b>, choose <b>BBC micro:bit [xxxxx]</b> and press Pair/Connect. On success the status turns green and the micro:bit shows ✔."]],
+  tip:"The micro:bit name follows the 5-letter pattern shown on its screen while pairing. Keep devices within about 5 meters for a stable signal.",
+  warn:"A micro:bit can only connect to one device at a time. Close other apps (MakeCode Bluetooth, the micro:bit app) before connecting."},
+ tm:{intro:"Teachable Machine (Google) trains an image model straight from your webcam. UCONNECT loads that model through its link.",
+  steps:[
+   ["Open Teachable Machine","Visit <b>teachablemachine.withgoogle.com</b> → Get Started → <b>Image Project</b> → <b>Standard image model</b>."],
+   ["Create classes and record samples","Create classes such as <b>up</b>, <b>down</b>, <b>left</b>, <b>right</b>, <b>stop</b>. Record 50–100 images per class (hand gestures, for example). Add a “stop” or “empty” class for an empty background."],
+   ["Train the model","Click <b>Train Model</b> and keep the tab open until it finishes. Check results in the Preview panel."],
+   ["Export and copy the link","Click <b>Export Model</b> → <b>Tensorflow.js</b> tab → <b>Upload (shareable link)</b> → <b>Update my cloud model</b>. Copy the link."],
+   ["Paste it into UCONNECT","Open the <b>AI Camera</b> tab, paste the link in the model field, click <b>Load Model</b>. Step 1 turns green."],
+   ["Start the camera","Click <b>Start Camera</b> and allow camera access. Detections appear as a percentage for every class."],
+   ["Map to commands","In the <b>Send to Micro:bit</b> card, fill in a command for each class (up, down, left, right, stop, etc.). If a class name equals a command, it is mapped automatically. Enable <b>Auto-send</b>."]],
+  tip:"Name classes after commands (up, down, left, right, stop) for automatic mapping. Train with the same lighting and distance you will use later.",
+  warn:"The camera only works on <b>HTTPS</b> or <b>localhost</b>. If the page is opened as a plain local file, some browsers block camera access."},
+ code:{intro:"This receiver code runs on the micro:bit. It accepts commands from the website and sends sensor data back.",
+  note:"Tinybit extension block names may differ slightly between versions. If you see errors, replace the movement blocks with the ones from your installed extension. The old Python sample was replaced by MakeCode because Bluetooth UART is easier there."},
+ cmds:[["up","Robot forward"],["down","Robot backward"],["left","Turn left"],["right","Turn right"],["stop","Stop"],["speed:0-255","Set motor speed"],["rgb:red|green|blue|…","RGB light color"],["beep","Horn"],["spin_l / spin_r","Spin 360° left / right"],["lampu:1 / lampu:0","Light on / off"],["kipas:0-1023","Fan speed"],["mode:1 / mode:0","Auto / manual"],["matrix:25 bits","Draw 5×5 LEDs"],["text:abc","Scrolling text"],["tone:Hz","Play a tone"]],
+ faq:[["micro:bit not in the list","Make sure the code is uploaded, Bluetooth is on and the micro:bit is not connected to another device. Press reset and try again."],["Connected but robot is idle","Check the Tiny:bit battery and that your MakeCode movement blocks match. Look in the Log tab to confirm commands are sent (TX)."],["Camera will not start","Allow camera access in the browser. Open the site over HTTPS or localhost and close other apps using the camera."],["Model fails to load","Make sure you chose Upload in Export Model and the link opens without login."],["AI commands are not sent","Check that Auto-send is on, the micro:bit is connected (or Demo Mode), and confidence is above the threshold."]]
+}};
+
+/* =====================================================================
+   SETTINGS & STATE
+   ===================================================================== */
+const DEFAULTS={theme:'dark',lang:'id',accent:'cyan',anim:true,sound:true,splash:true,speed:180,mirror:true,stable:3,threshold:80,autoSend:true,stopUnsure:false};
+let S={...DEFAULTS};
+try{const raw=localStorage.getItem('uconnect_settings');if(raw)S={...DEFAULTS,...JSON.parse(raw)};}catch(e){}
+function saveSettings(){try{localStorage.setItem('uconnect_settings',JSON.stringify(S));}catch(e){}}
+const $=id=>document.getElementById(id);
+const t=k=>(I18N[S.lang]&&I18N[S.lang][k])||I18N.id[k]||k;
+
+let bleDevice=null,writeChar=null,writeQueue=Promise.resolve(),receiveBuffer='';
+let isConnected=false,isDemo=false,demoTimer=null,txCount=0,rxCount=0,activeDir=null,lastWarn=0;
+const ACCENT_COLORS={cyan:'#00f0ff',purple:'#a78bfa',pink:'#ff4d9d',green:'#00f59b',amber:'#ffb703'};
+
+/* ---------- Sound ---------- */
+let audioCtx=null;
+function beep(freq=440,type='sine',dur=.08){
+  if(!S.sound)return;
+  try{if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.value=freq;
+    g.gain.setValueAtTime(.12,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+dur);
+    o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+dur);}catch(e){}
+}
+function toast(msg,type=''){
+  const el=document.createElement('div');el.className='toast '+type;el.textContent=msg;$('toasts').appendChild(el);
+  setTimeout(()=>{el.style.transition='opacity .3s';el.style.opacity='0';setTimeout(()=>el.remove(),300)},3200);
+}
+
+/* =====================================================================
+   ROBOT ILLUSTRATION
+   ===================================================================== */
+function robotSVG(id){
+  return `<svg viewBox="0 0 200 230" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="hd${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2a3a5e"/><stop offset="1" stop-color="#121a2e"/></linearGradient>
+    <linearGradient id="bd${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22304f"/><stop offset="1" stop-color="#0f1626"/></linearGradient>
+  </defs>
+  <g class="rb-ant"><line x1="100" y1="46" x2="100" y2="20" stroke="var(--primary)" stroke-width="4" stroke-linecap="round"/><circle class="rb-tip" cx="100" cy="15" r="8" fill="var(--pink)"/></g>
+  <rect x="24" y="78" width="16" height="34" rx="7" fill="#1a2540" stroke="var(--primary)" stroke-width="2"/>
+  <rect x="160" y="78" width="16" height="34" rx="7" fill="#1a2540" stroke="var(--primary)" stroke-width="2"/>
+  <rect x="38" y="46" width="124" height="92" rx="30" fill="url(#hd${id})" stroke="var(--primary)" stroke-width="3"/>
+  <rect x="54" y="62" width="92" height="58" rx="20" fill="#070b14"/>
+  <ellipse class="rb-eye" cx="79" cy="86" rx="9" ry="12" fill="var(--primary)"/>
+  <ellipse class="rb-eye" cx="121" cy="86" rx="9" ry="12" fill="var(--primary)"/>
+  <path d="M84 106 Q100 118 116 106" stroke="var(--primary)" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <rect x="62" y="144" width="76" height="58" rx="20" fill="url(#bd${id})" stroke="var(--primary)" stroke-width="3"/>
+  <circle cx="100" cy="170" r="11" fill="#070b14" stroke="var(--primary)" stroke-width="2"/>
+  <circle class="rb-tip" cx="100" cy="170" r="5" fill="var(--green)"/>
+  <rect x="38" y="150" width="18" height="44" rx="9" fill="#1a2540" stroke="var(--primary)" stroke-width="2"/>
+  <rect class="rb-arm-r" x="144" y="150" width="18" height="44" rx="9" fill="#1a2540" stroke="var(--primary)" stroke-width="2"/>
+  <g><circle cx="78" cy="212" r="13" fill="#0b1220" stroke="var(--primary)" stroke-width="3"/><g class="rb-wheel"><line x1="78" y1="202" x2="78" y2="222" stroke="var(--primary)" stroke-width="2.5"/><line x1="68" y1="212" x2="88" y2="212" stroke="var(--primary)" stroke-width="2.5"/></g></g>
+  <g><circle cx="122" cy="212" r="13" fill="#0b1220" stroke="var(--primary)" stroke-width="3"/><g class="rb-wheel"><line x1="122" y1="202" x2="122" y2="222" stroke="var(--primary)" stroke-width="2.5"/><line x1="112" y1="212" x2="132" y2="212" stroke="var(--primary)" stroke-width="2.5"/></g></g>
+</svg>`;
+}
+function miniRobot(){return `<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"><rect x="20" y="30" width="60" height="48" rx="14"/><circle cx="38" cy="52" r="5" fill="currentColor"/><circle cx="62" cy="52" r="5" fill="currentColor"/><path d="M40 66h20M50 30V14"/><circle cx="50" cy="10" r="4" fill="currentColor"/></svg>`;}
+$('splashRobot').innerHTML=robotSVG('s');
+$('heroRobot').innerHTML=robotSVG('h');
+$('floaters').innerHTML=[1,2,3,4].map(n=>`<div class="floater f${n}">${miniRobot()}</div>`).join('');
+$('splashTitle').innerHTML='UCONNECT'.split('').map((c,i)=>`<span style="animation-delay:${i*.1}s">${c}</span>`).join('');
+
+/* =====================================================================
+   ANIMATED PARTICLE BACKGROUND
+   ===================================================================== */
+const bg=$('bgCanvas'),bctx=bg.getContext('2d');let parts=[],bgRaf=0,bgRGB='0,240,255';
+function bgResize(){bg.width=innerWidth;bg.height=innerHeight;const n=Math.min(90,Math.floor(bg.width*bg.height/17000));
+  parts=Array.from({length:n},()=>({x:Math.random()*bg.width,y:Math.random()*bg.height,vx:(Math.random()-.5)*.35,vy:(Math.random()-.5)*.35,r:Math.random()*1.8+.8}));}
+function bgFrame(){
+  bctx.clearRect(0,0,bg.width,bg.height);
+  const light=document.documentElement.dataset.theme==='light',a=light?.5:.7;
+  for(const p of parts){p.x+=p.vx;p.y+=p.vy;if(p.x<0||p.x>bg.width)p.vx*=-1;if(p.y<0||p.y>bg.height)p.vy*=-1;
+    bctx.beginPath();bctx.arc(p.x,p.y,p.r,0,6.283);bctx.fillStyle=`rgba(${bgRGB},${a})`;bctx.fill();}
+  for(let i=0;i<parts.length;i++)for(let j=i+1;j<parts.length;j++){
+    const dx=parts[i].x-parts[j].x,dy=parts[i].y-parts[j].y,d=dx*dx+dy*dy;
+    if(d<14400){bctx.strokeStyle=`rgba(${bgRGB},${(1-d/14400)*(light?.22:.18)})`;bctx.lineWidth=1;bctx.beginPath();bctx.moveTo(parts[i].x,parts[i].y);bctx.lineTo(parts[j].x,parts[j].y);bctx.stroke();}}
+  bgRaf=requestAnimationFrame(bgFrame);
+}
+function bgToggle(){cancelAnimationFrame(bgRaf);if(S.anim){bgResize();bgFrame();}else bctx.clearRect(0,0,bg.width,bg.height);}
+addEventListener('resize',()=>{if(S.anim)bgResize();});
+
+/* =====================================================================
+   APPLY SETTINGS
+   ===================================================================== */
+const mq=matchMedia('(prefers-color-scheme: dark)');
+function applyTheme(){
+  const th=S.theme==='auto'?(mq.matches?'dark':'light'):S.theme;
+  document.documentElement.dataset.theme=th;document.documentElement.dataset.accent=S.accent;
+  setTimeout(()=>{const v=getComputedStyle(document.documentElement).getPropertyValue('--primary-rgb').trim();bgRGB=v||bgRGB;charts.forEach(c=>c.redraw());},30);
+}
+mq.addEventListener&&mq.addEventListener('change',()=>{if(S.theme==='auto')applyTheme();});
+function applyAnim(){document.body.classList.toggle('no-anim',!S.anim);bgToggle();}
+function applyLang(){
+  document.documentElement.lang=S.lang;
+  document.querySelectorAll('[data-i18n]').forEach(el=>el.innerHTML=t(el.dataset.i18n));
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>el.placeholder=t(el.dataset.i18nPh));
+  document.querySelectorAll('[data-i18n-title]').forEach(el=>el.title=t(el.dataset.i18nTitle));
+  buildPresets();buildNotes();buildGuide();refreshStatus();refreshCamUI();
+}
+function syncSettingsUI(){
+  document.querySelectorAll('#segTheme button').forEach(b=>b.classList.toggle('active',b.dataset.val===S.theme));
+  document.querySelectorAll('#segLang button').forEach(b=>b.classList.toggle('active',b.dataset.val===S.lang));
+  document.querySelectorAll('.swatch').forEach(b=>b.classList.toggle('active',b.dataset.val===S.accent));
+  $('setAnim').checked=S.anim;$('setSound').checked=S.sound;$('setSplash').checked=S.splash;$('setMirror').checked=S.mirror;
+  $('setSpeed').value=S.speed;$('setSpeedVal').textContent=S.speed;$('setStable').value=S.stable;$('setStableVal').textContent=S.stable;
+  $('speedSlider').value=S.speed;$('speedVal').textContent=S.speed;$('hudSpeed').textContent='SPD: '+S.speed;
+  $('thrSlider').value=S.threshold;$('thrVal').textContent=S.threshold+'%';$('autoSend').checked=S.autoSend;$('stopUnsure').checked=S.stopUnsure;
+}
+$('swatches').innerHTML=Object.entries(ACCENT_COLORS).map(([k,c])=>`<button class="swatch" data-val="${k}" style="background:${c}" title="${k}"></button>`).join('');
+$('segTheme').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;S.theme=b.dataset.val;saveSettings();syncSettingsUI();applyTheme();});
+$('segLang').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;S.lang=b.dataset.val;saveSettings();syncSettingsUI();applyLang();});
+$('swatches').addEventListener('click',e=>{const b=e.target.closest('.swatch');if(!b)return;S.accent=b.dataset.val;saveSettings();syncSettingsUI();applyTheme();});
+$('setAnim').onchange=e=>{S.anim=e.target.checked;saveSettings();applyAnim();};
+$('setSound').onchange=e=>{S.sound=e.target.checked;saveSettings();beep(700);};
+$('setSplash').onchange=e=>{S.splash=e.target.checked;saveSettings();};
+$('setMirror').onchange=e=>{S.mirror=e.target.checked;saveSettings();};
+$('setSpeed').oninput=e=>{S.speed=+e.target.value;$('setSpeedVal').textContent=S.speed;$('speedSlider').value=S.speed;$('speedVal').textContent=S.speed;$('hudSpeed').textContent='SPD: '+S.speed;saveSettings();};
+$('setStable').oninput=e=>{S.stable=+e.target.value;$('setStableVal').textContent=S.stable;saveSettings();};
+$('resetSettings').onclick=()=>{S={...DEFAULTS};saveSettings();syncSettingsUI();applyTheme();applyAnim();applyLang();toast(t('resetDone'),'ok');};
+const openSettings=()=>{$('drawer').classList.add('active');$('drawerBg').classList.add('active');};
+const closeSettings=()=>{$('drawer').classList.remove('active');$('drawerBg').classList.remove('active');};
+$('settingsBtn').onclick=openSettings;$('closeSettings').onclick=closeSettings;$('drawerBg').onclick=closeSettings;
+addEventListener('keydown',e=>{if(e.key==='Escape')closeSettings();});
+
+/* =====================================================================
+   VIEWS & TABS
+   ===================================================================== */
+function showView(v,tab){
+  $('homeView').classList.toggle('hidden',v!=='home');$('appView').classList.toggle('hidden',v!=='app');
+  if(tab)openTab(tab);scrollTo({top:0,behavior:'smooth'});
+}
+function openTab(id){
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===id));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('active',p.id===id));
+  if(id==='telemetryTab')charts.forEach(c=>c.resize());
+}
+document.querySelectorAll('.tab').forEach(x=>x.onclick=()=>openTab(x.dataset.tab));
+$('brandBtn').onclick=()=>showView('home');
+$('heroStart').onclick=()=>showView('app','controllerTab');
+$('heroGuide').onclick=()=>showView('app','guideTab');
+$('heroDemo').onclick=()=>{startDemo();showView('app','controllerTab');};
+document.querySelectorAll('.feat').forEach(f=>f.onclick=()=>showView('app',f.dataset.go));
+
+/* =====================================================================
+   SPLASH
+   ===================================================================== */
+function runSplash(){
+  const el=$('splash');
+  if(!S.splash){el.classList.add('out');return;}
+  const msgs=['sp1','sp2','sp3','sp4'];let p=0,done=false;
+  const finish=()=>{if(done)return;done=true;clearInterval(iv);$('splashBar').style.width='100%';setTimeout(()=>el.classList.add('out'),250);};
+  const iv=setInterval(()=>{p+=Math.random()*7+3;if(p>100)p=100;$('splashBar').style.width=p+'%';
+    $('splashMsg').textContent=t(msgs[Math.min(3,Math.floor(p/26))]);if(p>=100)finish();},150);
+  el.onclick=finish;
+}
+
+/* =====================================================================
+   LOG
+   ===================================================================== */
+function addLog(msg,type='sys'){
+  const l=document.createElement('div');l.className='log-line';
+  l.innerHTML=`<span class="log-time">${new Date().toLocaleTimeString()}</span><span class="log-tag ${type}">${type.toUpperCase()}</span><span class="log-msg"></span>`;
+  l.lastChild.textContent=msg;$('log').appendChild(l);$('log').scrollTop=$('log').scrollHeight;
+  if(type==='tx')txCount++;if(type==='rx')rxCount++;$('termStats').textContent=`TX: ${txCount} | RX: ${rxCount}`;
+}
+$('clearLogBtn').onclick=()=>{$('log').innerHTML='';addLog('Log cleared','sys');};
+$('exportLogBtn').onclick=()=>{const txt=[...$('log').children].map(e=>e.innerText.replace(/\n/g,' ')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'}));a.download=`uconnect_log_${Date.now()}.txt`;a.click();};
+const sendCustom=()=>{const v=$('cmdInput').value.trim();if(v){sendCommand(v);$('cmdInput').value='';}};
+$('sendCmdBtn').onclick=sendCustom;$('cmdInput').addEventListener('keydown',e=>{if(e.key==='Enter')sendCustom();});
+
+/* =====================================================================
+   COMMANDS (TX)
+   ===================================================================== */
+function sendCommand(cmd){
+  addLog(cmd,'tx');
+  if(isDemo){demoReply(cmd);return;}
+  if(!writeChar){if(Date.now()-lastWarn>3500){lastWarn=Date.now();toast(t('notConn'),'err');}return;}
+  const data=new TextEncoder().encode(cmd+'\n');
+  writeQueue=writeQueue.then(async()=>{
+    for(let i=0;i<data.length;i+=20){const ch=data.slice(i,i+20);
+      if(writeChar.properties.write)await writeChar.writeValue(ch);else await writeChar.writeValueWithoutResponse(ch);}
+  }).catch(err=>addLog('Send failed: '+err.message,'err'));
+}
+
+/* =====================================================================
+   ROBOT CONTROL
+   ===================================================================== */
+const arenaRobot=$('arenaRobot');
+function animateArena(cmd){
+  const m={up:'translateY(-30px) scale(1.05)',down:'translateY(30px) scale(.95)',left:'translateX(-35px) rotate(-18deg)',right:'translateX(35px) rotate(18deg)',stop:'translate(0,0) rotate(0)'};
+  if(m[cmd]){arenaRobot.style.transform=m[cmd];$('arenaStatus').textContent=cmd==='stop'?'Idle':cmd.toUpperCase();}
+  else if(cmd.startsWith('spin')){arenaRobot.style.transform='rotate(360deg)';setTimeout(()=>arenaRobot.style.transform='rotate(0)',450);}
+}
+function runCommand(cmd){$('hudLastCmd').textContent=cmd.toUpperCase();animateArena(cmd);sendCommand(cmd);}
+function dirStart(cmd,el){
+  if(activeDir===cmd)return;activeDir=cmd;if(el)el.classList.add('active');
+  beep({up:520,down:330,left:440,right:440,stop:220}[cmd]||400,cmd==='stop'?'square':'sine');
+  runCommand(cmd);
+}
+function dirEnd(cmd,el){
+  if(el)el.classList.remove('active');
+  if($('holdMode').checked&&cmd!=='stop'&&activeDir===cmd){activeDir=null;runCommand('stop');beep(260,'square',.04);}
+  else if(!$('holdMode').checked&&cmd!=='stop'&&activeDir===cmd){activeDir=null;}
+  else if(cmd==='stop'){activeDir=null;}
+}
+const dirEls={up:document.querySelector('.d-up'),down:document.querySelector('.d-down'),left:document.querySelector('.d-left'),right:document.querySelector('.d-right'),stop:document.querySelector('.d-stop')};
+Object.entries(dirEls).forEach(([cmd,el])=>{
+  el.addEventListener('pointerdown',e=>{e.preventDefault();dirStart(cmd,el);});
+  el.addEventListener('pointerup',e=>{e.preventDefault();dirEnd(cmd,el);});
+  el.addEventListener('pointerleave',()=>{if(el.classList.contains('active'))dirEnd(cmd,el);});
+  el.addEventListener('pointercancel',()=>dirEnd(cmd,el));
+});
+const keyCmd={ArrowUp:'up',KeyW:'up',ArrowDown:'down',KeyS:'down',ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',Space:'stop'};
+addEventListener('keydown',e=>{
+  if(['INPUT','TEXTAREA'].includes(e.target.tagName)||$('controllerTab').classList.contains('active')===false||$('appView').classList.contains('hidden'))return;
+  const c=keyCmd[e.code];if(c){e.preventDefault();if(!e.repeat)dirStart(c,dirEls[c]);}
+});
+addEventListener('keyup',e=>{
+  if(['INPUT','TEXTAREA'].includes(e.target.tagName))return;
+  const c=keyCmd[e.code];if(c){e.preventDefault();dirEnd(c,dirEls[c]);}
+});
+$('speedSlider').oninput=e=>{S.speed=+e.target.value;$('speedVal').textContent=S.speed;$('hudSpeed').textContent='SPD: '+S.speed;$('setSpeed').value=S.speed;$('setSpeedVal').textContent=S.speed;};
+$('speedSlider').onchange=e=>{sendCommand('speed:'+e.target.value);saveSettings();};
+
+const RGB={red:'#ff0055',green:'#00ff66',blue:'#0088ff',yellow:'#ffcc00',cyan:'#00f0ff',purple:'#aa00ff',white:'#ffffff',off:'#222222'};
+$('palette').innerHTML=Object.entries(RGB).map(([k,c],i)=>`<button class="cdot ${i===0?'active':''}" data-color="${k}" style="background:${c};color:${c}" title="rgb:${k}"></button>`).join('');
+$('palette').addEventListener('click',e=>{
+  const d=e.target.closest('.cdot');if(!d)return;
+  document.querySelectorAll('.cdot').forEach(x=>x.classList.remove('active'));d.classList.add('active');
+  const c=d.dataset.color,hex=RGB[c];['rgbL','rgbR'].forEach(id=>{$(id).setAttribute('fill',hex);$(id).style.filter=c==='off'?'none':`drop-shadow(0 0 5px ${hex})`;});
+  sendCommand('rgb:'+c);beep(480,'sine',.05);
+});
+document.querySelectorAll('.action-btn[data-cmd]').forEach(b=>b.onclick=()=>{
+  const c=b.dataset.cmd;sendCommand(c);animateArena(c);
+  if(c==='beep')beep(880,'square',.15);else if(c.startsWith('spin'))beep(600,'triangle',.1);
+});
+$('lampuSw').onchange=e=>{sendCommand('lampu:'+(e.target.checked?1:0));beep(e.target.checked?600:300);};
+$('modeSw').onchange=e=>{const v=e.target.checked?1:0;sendCommand('mode:'+v);$('hudMode').textContent=v?'AUTO':'MANUAL';};
+$('kipasSlider').oninput=e=>$('kipasVal').textContent=e.target.value;
+$('kipasSlider').onchange=e=>sendCommand('kipas:'+e.target.value);
+
+/* =====================================================================
+   MATRIX & PRESETS & NOTES
+   ===================================================================== */
+const matrixState=Array(25).fill(false);
+function buildMatrix(){
+  const m=$('matrix');m.innerHTML='';
+  for(let i=0;i<25;i++){const d=document.createElement('div');d.className='led'+(matrixState[i]?' on':'');
+    d.onclick=()=>{matrixState[i]=!matrixState[i];d.classList.toggle('on',matrixState[i]);beep(matrixState[i]?580:320,'sine',.04);sendMatrix();};m.appendChild(d);}
+  const tm=$('tiltMatrix');const heart=[0,1,0,1,0,1,1,1,1,1,1,1,1,1,1,0,1,1,1,0,0,0,1,0,0];
+  tm.innerHTML=heart.map(v=>`<div class="led${v?' on':''}" style="pointer-events:none"></div>`).join('');
+}
+function sendMatrix(){sendCommand('matrix:'+matrixState.map(v=>v?1:0).join(''));}
+function setMatrix(p){p.forEach((v,i)=>matrixState[i]=v===1);document.querySelectorAll('#matrix .led').forEach((l,i)=>l.classList.toggle('on',matrixState[i]));sendMatrix();}
+$('clearMatrixBtn').onclick=()=>{setMatrix(Array(25).fill(0));beep(250,'square',.08);};
+const PRESETS={heart:[0,1,0,1,0,1,1,1,1,1,1,1,1,1,1,0,1,1,1,0,0,0,1,0,0],happy:[0,1,0,1,0,0,1,0,1,0,0,0,0,0,0,1,0,0,0,1,0,1,1,1,0],sad:[0,1,0,1,0,0,1,0,1,0,0,0,0,0,0,0,1,1,1,0,1,0,0,0,1],check:[0,0,0,0,1,0,0,0,1,0,1,0,1,0,0,0,1,0,0,0,0,0,0,0,0],cross:[1,0,0,0,1,0,1,0,1,0,0,0,1,0,0,0,1,0,1,0,1,0,0,0,1],arrow:[0,0,1,0,0,0,1,1,1,0,1,0,1,0,1,0,0,1,0,0,0,0,1,0,0]};
+function buildPresets(){
+  const items=[['heart','❤️','pHeart'],['happy','😊','pHappy'],['sad','😢','pSad'],['check','✔️','pCheck'],['cross','❌','pCross'],['arrow','⬆️','pArrow']];
+  $('presetGrid').innerHTML=items.map(([k,e,l])=>`<button class="preset" data-p="${k}"><span>${e}</span>${t(l)}</button>`).join('');
+  $('presetGrid').querySelectorAll('.preset').forEach(b=>b.onclick=()=>{setMatrix(PRESETS[b.dataset.p]);beep(650,'triangle',.08);});
+}
+function buildNotes(){
+  const n=[['DO',262],['RE',294],['MI',330],['FA',349],['SOL',392],['LA',440],['SI',494],["DO'",523]];
+  $('noteGrid').innerHTML=n.map(([a,f])=>`<button class="action-btn" data-f="${f}"><span>${a}</span><small style="color:var(--muted);font-size:.68rem">${f} Hz</small></button>`).join('');
+  $('noteGrid').querySelectorAll('button').forEach(b=>b.onclick=()=>{const f=+b.dataset.f;beep(f,'sine',.18);sendCommand('tone:'+f);});
+}
+$('sendTextBtn').onclick=()=>{const v=$('matrixText').value.trim();if(v){sendCommand('text:'+v);beep(520,'sine',.1);}};
+function pressBtn(id,st,name,color){
+  const b=$(id),s=$(st);
+  b.addEventListener('pointerdown',()=>{b.classList.add('pressed');s.textContent='PRESSED';s.style.color='var(--green)';sendCommand('btn:'+name);beep(name==='a'?550:650,'triangle',.06);});
+  const up=()=>{b.classList.remove('pressed');s.textContent='RELEASED';s.style.color='var(--muted)';};
+  b.addEventListener('pointerup',up);b.addEventListener('pointerleave',up);
+}
+pressBtn('boardA','stBtnA','a');pressBtn('boardB','stBtnB','b');
+$('boardLogo').onclick=()=>{const l=$('logoTouch');l.textContent='TOUCHED';l.style.color='var(--green)';beep(800);sendCommand('logo:touch');setTimeout(()=>{l.textContent='OFF';l.style.color='var(--yellow)';},600);};
+
+/* =====================================================================
+   SENSOR CHARTS
+   ===================================================================== */
+class Spark{
+  constructor(id,color,fill){this.c=$(id);this.ctx=this.c.getContext('2d');this.color=color;this.fill=fill;this.data=[];this.max=25;this.resize();addEventListener('resize',()=>this.resize());}
+  resize(){const r=this.c.getBoundingClientRect(),d=devicePixelRatio||1;if(!r.width)return;this.c.width=r.width*d;this.c.height=r.height*d;this.redraw();}
+  push(v){this.data.push(v);if(this.data.length>this.max)this.data.shift();this.redraw();}
+  redraw(){
+    if(!this.data.length||!this.c.width)return;const w=this.c.width,h=this.c.height,x=this.ctx,d=devicePixelRatio||1;x.clearRect(0,0,w,h);
+    const mn=Math.min(...this.data)*.95,mx=Math.max(...this.data)*1.05||1,rg=mx-mn||1,st=w/(this.max-1);x.beginPath();
+    this.data.forEach((v,i)=>{const px=i*st,py=h-((v-mn)/rg)*(h-14*d)-7*d;i?x.lineTo(px,py):x.moveTo(px,py);});
+    x.strokeStyle=this.color;x.lineWidth=2.5*d;x.lineJoin='round';x.stroke();
+    x.lineTo((this.data.length-1)*st,h);x.lineTo(0,h);x.closePath();const g=x.createLinearGradient(0,0,0,h);g.addColorStop(0,this.fill);g.addColorStop(1,'transparent');x.fillStyle=g;x.fill();
+  }
+}
+const cSuhu=new Spark('chartSuhu','#ff3366','rgba(255,51,102,.28)'),cHum=new Spark('chartKelembaban','#00c8ff','rgba(0,200,255,.28)'),cLight=new Spark('chartCahaya','#ffb703','rgba(255,183,3,.28)'),cSound=new Spark('chartSuara','#7928ca','rgba(121,40,202,.28)');
+const charts=[cSuhu,cHum,cLight,cSound];
+for(let i=0;i<15;i++){cSuhu.push(26+Math.random()*2);cHum.push(60+Math.random()*10);cLight.push(130+Math.random()*20);cSound.push(40+Math.random()*15);}
+
+function parseTelemetry(line){
+  const [k0,v0]=line.split(':');if(v0===undefined)return;const k=k0.trim().toLowerCase(),v=parseFloat(v0);if(isNaN(v))return;
+  switch(k){
+    case'suhu':$('suhuVal').textContent=v.toFixed(1);cSuhu.push(v);break;
+    case'kelembaban':$('kelembabanVal').textContent=Math.round(v);cHum.push(v);break;
+    case'cahaya':$('cahayaVal').textContent=Math.round(v);cLight.push(v);break;
+    case'suara':$('suaraVal').textContent=Math.round(v);cSound.push(v);break;
+    case'x':$('valX').textContent=Math.round(v)+'°';tilt();break;
+    case'y':$('valY').textContent=Math.round(v)+'°';tilt();break;
+    case'z':$('valZ').textContent=Math.round(v);break;
+    case'p0':case'p1':case'p2':$('pin'+k.toUpperCase()).textContent=Math.round(v);break;
+    case'lampu':$('lampuSw').checked=v===1;break;
+    case'kipas':$('kipasSlider').value=v;$('kipasVal').textContent=v;break;
+    case'mode':$('modeSw').checked=v===1;$('hudMode').textContent=v===1?'AUTO':'MANUAL';break;
+  }
+}
+function tilt(){$('tiltModel').style.transform=`rotateX(${parseFloat($('valX').textContent)||0}deg) rotateY(${parseFloat($('valY').textContent)||0}deg)`;}
+
+/* =====================================================================
+   BLUETOOTH
+   ===================================================================== */
+const UART_SERVICE='6e400001-b5a3-f393-e0a9-e50e24dcca9e',UART_A='6e400002-b5a3-f393-e0a9-e50e24dcca9e',UART_B='6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+function modalStep(step,title,desc){
+  $('loadingModal').classList.add('active');$('mTitle').textContent=title;$('mDesc').textContent=desc;
+  for(let i=1;i<=4;i++){const e=$('ms'+i);e.className='step-item'+(i<step?' done':i===step?' active':'');}
+  $('mBar').style.width=step*25+'%';
+}
+const hideModal=()=>$('loadingModal').classList.remove('active');
+$('cancelBtn').onclick=()=>{hideModal();addLog('Connection cancelled','sys');};
+$('modalDemoBtn').onclick=()=>{hideModal();startDemo();};
+
+function refreshStatus(){
+  const dot=$('statusDot'),txt=$('statusText'),cb=$('connectBtn');
+  if(isDemo){dot.className='dot demo';txt.textContent=t('stDemo');}
+  else if(isConnected){dot.className='dot connected';txt.textContent=t('stConn')+(bleDevice?': '+bleDevice.name:'');}
+  else{dot.className='dot';txt.textContent=t('stDisc');}
+  $('connectBtnText').textContent=isConnected?t('btnDisconnect'):t('btnConnect');
+  cb.className='btn '+(isConnected?'btn-danger':'btn-primary');
+  $('demoBtnText').textContent=isDemo?t('btnStopDemo'):t('btnDemo');
+  $('demoBtn').className='btn '+(isDemo?'btn-outline':'btn-demo');
+  const link=$('camLinkTag');if(link){link.textContent=isDemo?t('camLinkedDemo'):isConnected?t('camLinked'):t('camNotLinked');link.className='tag '+(isDemo?'warn':isConnected?'ok':'');}
+}
+$('connectBtn').onclick=async()=>{
+  if(isDemo)stopDemo();
+  if(bleDevice&&bleDevice.gatt.connected){bleDevice.gatt.disconnect();return;}
+  if(!navigator.bluetooth){toast(t('noBle'),'err');addLog('Web Bluetooth not supported','err');return;}
+  try{
+    modalStep(1,t('mInit'),t('mInitD'));addLog('Scanning for micro:bit…','sys');await new Promise(r=>setTimeout(r,350));
+    modalStep(2,t('mScan'),t('mScanD'));
+    bleDevice=await navigator.bluetooth.requestDevice({filters:[{namePrefix:'BBC micro:bit'},{namePrefix:'micro:bit'}],optionalServices:[UART_SERVICE]});
+    modalStep(3,t('mGatt'),bleDevice.name);bleDevice.addEventListener('gattserverdisconnected',onDisc);
+    const server=await bleDevice.gatt.connect();const svc=await server.getPrimaryService(UART_SERVICE);
+    modalStep(4,t('mCfg'),t('mCfgD'));
+    // Detect which characteristic is notify (micro:bit → web) and which is write (web → micro:bit)
+    const chars=[await svc.getCharacteristic(UART_A),await svc.getCharacteristic(UART_B)];
+    const notifyChar=chars.find(c=>c.properties.notify||c.properties.indicate);
+    writeChar=chars.find(c=>c.properties.write||c.properties.writeWithoutResponse);
+    if(notifyChar){await notifyChar.startNotifications();notifyChar.addEventListener('characteristicvaluechanged',onData);}
+    $('mBar').style.width='100%';$('mTitle').textContent=t('mOk');$('mDesc').textContent=bleDevice.name;await new Promise(r=>setTimeout(r,500));
+    hideModal();isConnected=true;refreshStatus();addLog('Connected: '+bleDevice.name,'sys');beep(880,'sine',.15);toast(t('mOk'),'ok');
+  }catch(err){
+    hideModal();console.error(err);
+    if(err.name!=='NotFoundError'){addLog('Connect failed: '+err.message,'err');toast(err.message,'err');}else addLog('Scan cancelled','sys');
+    isConnected=false;writeChar=null;refreshStatus();
+  }
+};
+function onDisc(){isConnected=false;writeChar=null;refreshStatus();addLog('Bluetooth disconnected','err');toast(t('stDisc'),'err');}
+function onData(ev){
+  receiveBuffer+=new TextDecoder().decode(ev.target.value);const lines=receiveBuffer.split('\n');receiveBuffer=lines.pop();
+  for(let l of lines){l=l.trim();if(!l)continue;addLog(l,'rx');parseTelemetry(l);}
+}
+
+/* ---------- Demo ---------- */
+function startDemo(){
+  if(isDemo)return;if(isConnected&&bleDevice){toast('Disconnect Bluetooth first','err');return;}
+  isDemo=true;refreshStatus();addLog('--- Demo started ---','sys');
+  demoTimer=setInterval(()=>{const n=Date.now();
+    parseTelemetry('suhu:'+(26.5+Math.sin(n/4000)*3+Math.random()*.4).toFixed(1));parseTelemetry('kelembaban:'+Math.round(62+Math.cos(n/5000)*8+Math.random()*2));
+    parseTelemetry('cahaya:'+Math.round(140+Math.sin(n/3000)*40));parseTelemetry('suara:'+Math.round(45+Math.random()*25));
+    parseTelemetry('x:'+Math.round(Math.sin(n/2000)*15));parseTelemetry('y:'+Math.round(Math.cos(n/2500)*15));},1200);
+}
+function stopDemo(){isDemo=false;clearInterval(demoTimer);refreshStatus();addLog('--- Demo stopped ---','sys');}
+$('demoBtn').onclick=()=>isDemo?stopDemo():startDemo();
+function demoReply(cmd){const[k,v]=cmd.split(':');
+  if(k==='lampu')addLog('Demo micro:bit: lampu = '+v,'rx');else if(k==='speed')addLog('Demo Tiny:bit: speed = '+v,'rx');else if(k==='rgb')addLog('Demo Tiny:bit: RGB = '+v,'rx');}
+
+/* =====================================================================
+   AI CAMERA (Teachable Machine)
+   ===================================================================== */
+const cam={model:null,webcam:null,running:false,raf:0,labels:[],url:'',mapping:{},busy:false,lastPredict:0,fpsN:0,fpsT:0,target:null,count:0,lastSent:null};
+const CMD_ALIASES=[[/^(up|maju|forward|atas|naik|front)/i,'up'],[/^(down|mundur|back|bawah|backward)/i,'down'],[/^(left|kiri)/i,'left'],[/^(right|kanan)/i,'right'],[/^(stop|berhenti|diam|kosong|background|none|idle)/i,'stop']];
+const guessCmd=n=>{for(const[r,c]of CMD_ALIASES)if(r.test(n.trim()))return c;return'';};
+function normalizeUrl(u){u=u.trim();if(!u)return'';u=u.replace(/(model|metadata)\.json.*$/i,'');if(!/^https?:\/\//i.test(u))u='https://'+u;return u.endsWith('/')?u:u+'/';}
+function setCamStep(){
+  const s1=cam.model,s2=cam.running,s3=s1&&s2&&S.autoSend&&(isConnected||isDemo);
+  [['cs1',s1,!s1],['cs2',s2,s1&&!s2],['cs3',s3,s1&&s2&&!s3]].forEach(([id,done,now])=>{$(id).className='sm-step'+(done?' done':now?' now':'');});
+}
+function refreshCamUI(){
+  setCamStep();
+  $('camModelTag').textContent=cam.model?t('camLoaded'):'—';$('camModelTag').className='tag'+(cam.model?' ok':'');
+  $('camStateTag').textContent=cam.running?'LIVE':'OFF';$('camStateTag').className='tag'+(cam.running?' ok':'');
+  $('camStartBtn').classList.toggle('hidden',cam.running);$('camStopBtn').classList.toggle('hidden',!cam.running);
+}
+function buildBars(){
+  $('bars').innerHTML=cam.labels.map((l,i)=>`<div class="bar-row" id="br${i}"><span class="bar-name" title="${l}">${l}</span><div class="bar-track"><div class="bar-fill" id="bf${i}"></div></div><span class="bar-pct" id="bp${i}">0%</span></div>`).join('');
+}
+function buildMapping(){
+  const key='uconnect_map_'+cam.url;let saved={};try{saved=JSON.parse(localStorage.getItem(key)||'{}');}catch(e){}
+  cam.mapping={};cam.labels.forEach(l=>cam.mapping[l]=saved[l]!==undefined?saved[l]:guessCmd(l));
+  $('mapList').innerHTML=cam.labels.map((l,i)=>`<div class="map-row"><b title="${l}">${l}</b><span class="arrow">→</span><input class="input" list="cmdList" data-i="${i}" value="${cam.mapping[l]}" placeholder="up, down, …"></div>`).join('');
+  $('mapList').querySelectorAll('input').forEach(inp=>inp.oninput=()=>{cam.mapping[cam.labels[inp.dataset.i]]=inp.value.trim();try{localStorage.setItem(key,JSON.stringify(cam.mapping));}catch(e){}cam.target=null;});
+}
+async function loadModel(){
+  if(typeof tmImage==='undefined'){toast(t('camErrLib'),'err');return false;}
+  const url=normalizeUrl($('tmUrl').value);if(!url){toast(t('camNoModel'),'err');$('tmUrl').focus();return false;}
+  const btn=$('loadModelBtn');btn.disabled=true;btn.firstElementChild.textContent=t('camLoading');$('camModelTag').textContent=t('camLoading');
+  try{
+    if(cam.running)stopCamera();
+    cam.model=await tmImage.load(url+'model.json',url+'metadata.json');cam.url=url;
+    cam.labels=(cam.model.getClassLabels?cam.model.getClassLabels():null)||Array.from({length:cam.model.getTotalClasses()},(_,i)=>'Class '+(i+1));
+    $('tmUrl').value=url;try{localStorage.setItem('uconnect_tm_url',url);}catch(e){}
+    buildBars();buildMapping();addLog('Model loaded: '+url+' ('+cam.labels.join(', ')+')','ai');toast(t('camLoaded'),'ok');return true;
+  }catch(err){console.error(err);cam.model=null;toast(t('camLoadErr'),'err');addLog('Model error: '+err.message,'err');return false;}
+  finally{btn.disabled=false;btn.firstElementChild.textContent=t('camLoad');refreshCamUI();}
+}
+async function startCamera(){
+  if(!cam.model){const ok=await loadModel();if(!ok)return;}
+  const btn=$('camStartBtn');btn.disabled=true;
+  try{
+    cam.webcam=new tmImage.Webcam(360,360,S.mirror);await cam.webcam.setup();await cam.webcam.play();
+    $('camStage').appendChild(cam.webcam.canvas);$('camPh').classList.add('hidden');$('camOverlay').classList.remove('hidden');$('camStage').classList.add('live');
+    cam.running=true;cam.target=null;cam.count=0;cam.lastSent=null;cam.fpsT=performance.now();cam.fpsN=0;cam.raf=requestAnimationFrame(camLoop);
+    addLog('Camera started','ai');toast(t('camOn'),'ok');
+  }catch(err){console.error(err);toast(t('camErrCam'),'err');addLog('Camera error: '+err.message,'err');}
+  finally{btn.disabled=false;refreshCamUI();}
+}
+function stopCamera(){
+  cam.running=false;cancelAnimationFrame(cam.raf);
+  try{cam.webcam&&cam.webcam.stop();}catch(e){}
+  if(cam.webcam&&cam.webcam.canvas&&cam.webcam.canvas.parentNode)cam.webcam.canvas.remove();cam.webcam=null;
+  $('camPh').classList.remove('hidden');$('camOverlay').classList.add('hidden');$('camStage').classList.remove('live');
+  $('topName').textContent='—';$('topHint').textContent='';$('ringPct').style.setProperty('--p',0);$('ringTxt').textContent='0%';
+  document.querySelectorAll('.bar-row').forEach(r=>r.classList.remove('top'));document.querySelectorAll('.bar-fill').forEach(f=>f.style.width='0');document.querySelectorAll('.bar-pct').forEach(p=>p.textContent='0%');
+  refreshCamUI();
+}
+async function camLoop(ts){
+  if(!cam.running)return;
+  cam.webcam.update();
+  if(!cam.busy&&ts-cam.lastPredict>90&&!document.hidden){cam.busy=true;cam.lastPredict=ts;
+    try{const p=await cam.model.predict(cam.webcam.canvas);if(cam.running)handlePrediction(p);}catch(e){console.error(e);}cam.busy=false;
+    cam.fpsN++;if(ts-cam.fpsT>1000){$('camFps').textContent=cam.fpsN+' FPS';cam.fpsN=0;cam.fpsT=ts;}}
+  cam.raf=requestAnimationFrame(camLoop);
+}
+function handlePrediction(preds){
+  let top=0;preds.forEach((p,i)=>{if(p.probability>preds[top].probability)top=i;});
+  preds.forEach((p,i)=>{const pct=Math.round(p.probability*100);const f=$('bf'+i),pp=$('bp'+i),r=$('br'+i);if(!f)return;
+    f.style.width=pct+'%';pp.textContent=pct+'%';r.classList.toggle('top',i===top);});
+  const best=preds[top],pct=Math.round(best.probability*100),sure=pct>=S.threshold;
+  $('topName').textContent=best.className;$('ringPct').style.setProperty('--p',pct);$('ringTxt').textContent=pct+'%';
+  const cmd=cam.mapping[best.className];$('topHint').textContent=cmd?'→ '+cmd:'';
+  if(!S.autoSend)return;
+  let target=sure?(cmd||''):(S.stopUnsure?'stop':'');
+  if(!target){cam.target=null;cam.count=0;return;}
+  if(target===cam.target)cam.count++;else{cam.target=target;cam.count=1;}
+  if(cam.count>=S.stable&&target!==cam.lastSent){
+    cam.lastSent=target;$('camLastSent').textContent=target;addLog(`AI: ${best.className} ${pct}% → ${target}`,'ai');runCommand(target);
+  }
+}
+$('loadModelBtn').onclick=loadModel;
+$('tmUrl').addEventListener('keydown',e=>{if(e.key==='Enter')loadModel();});
+$('camStartBtn').onclick=startCamera;$('camStopBtn').onclick=()=>{stopCamera();toast(t('camOff'));addLog('Camera stopped','ai');};
+$('autoSend').onchange=e=>{S.autoSend=e.target.checked;saveSettings();cam.lastSent=null;setCamStep();};
+$('stopUnsure').onchange=e=>{S.stopUnsure=e.target.checked;saveSettings();};
+$('thrSlider').oninput=e=>{S.threshold=+e.target.value;$('thrVal').textContent=S.threshold+'%';saveSettings();};
+try{const u=localStorage.getItem('uconnect_tm_url');if(u)$('tmUrl').value=u;}catch(e){}
+setInterval(setCamStep,1500);
+
+/* =====================================================================
+   GUIDE
+   ===================================================================== */
+let guideTab='use';
+function buildGuide(){
+  const G=GUIDE[S.lang],tabs=[['use','gUse','📘'],['conn','gConn','🔌'],['tm','gTM','🧠'],['code','gCode','💻'],['cmds','gCmd','📋'],['faq','gFaq','🛠️']];
+  $('guideNav').innerHTML=tabs.map(([k,l,e])=>`<button class="g-pill ${k===guideTab?'active':''}" data-g="${k}">${e} ${t(l)}</button>`).join('');
+  $('guideNav').querySelectorAll('.g-pill').forEach(b=>b.onclick=()=>{guideTab=b.dataset.g;buildGuide();});
+  const steps=s=>`<div class="g-steps">${s.map(([h,d],i)=>`<div class="g-step"><div class="g-num">${i+1}</div><div><h4>${h}</h4><p>${d}</p></div></div>`).join('')}</div>`;
+  const co=(c,tx)=>tx?`<div class="callout ${c}"><span>${c==='tip'?'💡':'⚠️'}</span><span>${tx}</span></div>`:'';
+  let html='';
+  if(['use','conn','tm'].includes(guideTab)){const g=G[guideTab];html=`<div class="g-panel active"><div class="g-intro">${g.intro}</div>${steps(g.steps)}${co('tip',g.tip)}${co('warn',g.warn)}</div>`;}
+  else if(guideTab==='code'){html=`<div class="g-panel active"><div class="g-intro">${G.code.intro}</div><div class="code-top"><span>MakeCode · JavaScript</span><button class="btn btn-outline btn-sm" id="copyCode">📋 ${t('copy')}</button></div><pre class="code" id="codeBlock"></pre>${co('warn',G.code.note)}</div>`;}
+  else if(guideTab==='cmds'){html=`<div class="g-panel active"><table class="cmd"><thead><tr><th>${t('cmdCol')}</th><th>${t('cmdFn')}</th></tr></thead><tbody>${G.cmds.map(([c,d])=>`<tr><td><code>${c}</code></td><td>${d}</td></tr>`).join('')}</tbody></table></div>`;}
+  else{html=`<div class="g-panel active">${G.faq.map(([q,a])=>`<div class="faq-item"><b>❓ ${q}</b><p>${a}</p></div>`).join('')}</div>`;}
+  $('guideBody').innerHTML=html;
+  if(guideTab==='code'){$('codeBlock').textContent=MAKECODE;$('copyCode').onclick=async()=>{try{await navigator.clipboard.writeText(MAKECODE);toast(t('copied'),'ok');}catch(e){const r=document.createRange();r.selectNodeContents($('codeBlock'));getSelection().removeAllRanges();getSelection().addRange(r);}};}
+}
+
+/* =====================================================================
+   INIT
+   ===================================================================== */
+buildMatrix();syncSettingsUI();applyTheme();applyAnim();applyLang();runSplash();
+addLog('UCONNECT v3.0 ready.','sys');
+</script>
+</body>
+</html>
